@@ -12,10 +12,16 @@ if config.config_file_name is not None:
 VERSION_TABLE_SCHEMA = "public"
 
 
+def _url() -> str:
+    """`config.attributes["sqlalchemy_url"]` when set programmatically (tests), else settings."""
+    override = config.attributes.get("sqlalchemy_url")
+    return override if isinstance(override, str) else get_settings().migrations_sqlalchemy_url()
+
+
 def run_migrations_offline() -> None:
     """Emit the migration SQL to stdout without connecting (`alembic upgrade head --sql`)."""
     context.configure(
-        url=get_settings().migrations_sqlalchemy_url(),
+        url=_url(),
         literal_binds=True,
         version_table_schema=VERSION_TABLE_SCHEMA,
     )
@@ -24,7 +30,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    engine = create_engine(get_settings().migrations_sqlalchemy_url(), poolclass=pool.NullPool)
+    engine = create_engine(_url(), poolclass=pool.NullPool)
     with engine.connect() as connection:
         context.configure(connection=connection, version_table_schema=VERSION_TABLE_SCHEMA)
         with context.begin_transaction():

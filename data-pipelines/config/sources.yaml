@@ -15,6 +15,19 @@ census_api:
     statehs: HS6
   # An HS-4 prefix at HS-10 can take about a minute per month.
   timeout_seconds: 300
+  # Rows dropped as they load, to fit Neon's free-tier storage. The archive keeps every
+  # response, so a wider filter can be reloaded with `--from-archive`.
+  filters:
+    hs:
+      drop_country_groups: true # SUMMARY_LVL = CGP, sums of individual countries
+      drop_all_zero: true # every value, weight and quantity is zero
+    porths: &asia_and_mexico
+      drop_country_groups: true
+      drop_all_zero: true
+      countries:
+        code_prefixes: ["5"] # Asia, including the Middle East and South Asia
+        codes: ["2010", "-"] # Mexico; the all-countries total
+    statehs: *asia_and_mexico
 
 census_state_port:
   url_template: https://www.census.gov/trade/downloads/additional/ISTPORT/ISTPORT{yy}Q{quarter}.ZIP
