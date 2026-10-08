@@ -1,0 +1,24 @@
+# Case HS codes. Loaders request HS-10 rows whose code starts with one of these prefixes.
+# Labels and case membership are repeated in dbt/seeds/seed_hs_case_codes.csv for core.
+
+prefixes:
+  - prefix: "847150"
+    level: HS6
+    label: Processing units (servers)
+    cases: [tariffs_2025, panama_red_sea]
+  - prefix: "8504"
+    level: HS4
+    label: Electrical transformers, static converters and inductors
+    cases: [panama_red_sea]
+  - prefix: "8537"
+    level: HS4
+    label: Boards and panels for electric control or distribution (switchgear)
+    cases: [panama_red_sea]
+  - prefix: "8507"
+    level: HS4
+    label: Electric storage batteries
+    cases: [panama_red_sea]
+  - prefix: "8415"
+    level: HS4
+    label: Air conditioning machines (cooling)
+    cases: [panama_red_sea]

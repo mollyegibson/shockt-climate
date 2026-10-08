@@ -1,0 +1,49 @@
+# Source settings for the ingestion CLI. Command-line flags override the date range.
+# Filters applied at load time are recorded in raw.load_manifest.params.
+
+date_range:
+  start_month: "2022-01"
+  # null resolves to the latest month each source has published at load time.
+  end_month: null
+
+census_api:
+  base_url: https://api.census.gov/data/timeseries/intltrade/imports
+  # Deepest HS level each endpoint serves (plan spike 1).
+  comm_lvl:
+    hs: HS10
+    porths: HS6
+    statehs: HS6
+  # An HS-4 prefix at HS-10 can take about a minute per month.
+  timeout_seconds: 300
+
+census_state_port:
+  url_template: https://www.census.gov/trade/downloads/additional/ISTPORT/ISTPORT{yy}Q{quarter}.ZIP
+  # Census Schedule C codes starting with "5" cover Asia, including the Middle East and South Asia.
+  country_code_prefixes: ["5"]
+  country_codes: ["2010"] # Mexico
+  # The state filter and state groups come from this seed so the loader and core share one list.
+  state_groups_seed: dbt/seeds/seed_state_groups.csv
+  drop_rows_without_air_or_vessel_weight: true
+
+bts_transborder:
+  manual_dir: data/manual/bts
+  trade_type: 2 # imports
+  country_codes: ["2010"] # Mexico
+  hs2_chapters: ["84", "85"]
+  tables: [dot2, dot3]
+
+portwatch:
+  query_url: https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query
+  page_size: 1000
+  chokepoints:
+    chokepoint1: Suez Canal
+    chokepoint2: Panama Canal
+    chokepoint4: Bab el-Mandeb Strait
+    chokepoint7: Cape of Good Hope
+
+climatetrace:
+  table: trace-data-383422.climate_trace.shipping_voyages
+  origin_iso3: [CHN, HKG, IDN, IND, JPN, KOR, MEX, MYS, PHL, SGP, THA, TWN, VNM]
+  destination_iso3: [USA]
+  # Applied only if the table has a vessel type column (confirmed in spike 5).
+  vessel_types: [container]
