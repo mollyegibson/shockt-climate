@@ -1,0 +1,27 @@
+-- Voyages from current Climate TRACE loads, with the generic other* columns named by meaning (plan section 5.7).
+select
+    v.asset_identifier,
+    split_part(v.asset_identifier, '-', 1) as model_source,
+    v.start_date as started_at,
+    v.end_date as ended_at,
+    v.asset_name as vessel_name,
+    v.iso3_country as flag_iso3,
+    v.type as vessel_type,
+    v.other2 as start_port,
+    v.other3 as end_port,
+    v.other4 as start_iso3,
+    v.other5 as end_iso3,
+    v.other6 as start_port_id,
+    v.other7 as end_port_id,
+    v.other8 as is_international,
+    v.activity as distance_nm,
+    v.activity * 1.852 as distance_km,
+    extract(epoch from v.end_date - v.start_date) / 3600 as duration_h,
+    v.co2_emissions_factor as co2_t_per_nm,
+    v.co2_emissions as co2_t,
+    v.total_co2e_100yrgwp as co2e_t,
+    v.capacity as capacity_inferred_gross_tonnage,
+    v.other11 as capacity_inferred_deadweight_t,
+    v.load_id
+from {{ source('raw', 'climatetrace_voyages') }} as v
+where v.load_id in ({{ succeeded_loads('climatetrace_voyages') }})

@@ -20,8 +20,8 @@ The agreed vocabulary for ShockT Climate. If a term is here, code and docs spell
 | **Lane** | An origin-to-destination route, e.g. TW-US, Asia → US East Coast. |
 | **Leg** | One mode-specific segment of a lane, door to door. A lane's emissions are the sum of its legs. |
 | **Cell** | A slice of tonnage by origin × US port region × mode. |
-| **Port region** | A group of US ports: East, West, Gulf (plus border and inland for non-coastal entry). |
-| **Mode** | `air`, `vessel` (with `vessel_containerized` as a subset), `land`, `truck`, `rail`. |
+| **Coast region** | The region of a US port of entry, by customs district: `east`, `west`, `gulf`, `border_north`, `border_south`, `inland`, `noncontiguous`, `other`. The calculator's port regions are East, West and Gulf. |
+| **Mode** | `air`, `vessel` (with `vessel_containerized` as a subset), `other` (general imports value minus air and vessel; overland for Mexico and Canada, no Census weight), and later `truck` and `rail` from BTS TransBorder. |
 | **Diversion rate** | The fraction of one category's tonnage that moved to another in a window: (s_to,response − s_to,baseline) / s_from,baseline. |
 | **Market response** | A case's diversion rates applied to a user's tonnage, in a fixed order: origin, then port region, then mode. Shown as one row. |
 | **Alternative** | A lever the user controls (e.g. land West Coast + rail), shown as its own row. |

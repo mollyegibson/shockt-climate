@@ -26,6 +26,8 @@ class LoadSource:
     source_vintage: str | None
     object_key: str | None
     object_sha256: str | None
+    bytes_processed: int | None = None
+    """BigQuery bytes scanned to produce the source, when it came from a query."""
 
 
 @cache
@@ -54,6 +56,16 @@ def code_version() -> str:
 def succeeded_partitions(conn: psycopg.Connection, dataset: str) -> set[str]:
     rows = conn.execute(
         "SELECT partition_key FROM raw.load_manifest WHERE dataset = %s AND status = 'succeeded'",
+        (dataset,),
+    ).fetchall()
+    return {row[0] for row in rows}
+
+
+def archived_partitions(conn: psycopg.Connection, dataset: str) -> set[str]:
+    """Partitions with a file in the archive, from any load that got as far as archiving it."""
+    rows = conn.execute(
+        "SELECT DISTINCT partition_key FROM raw.load_manifest "
+        "WHERE dataset = %s AND object_key IS NOT NULL",
         (dataset,),
     ).fetchall()
     return {row[0] for row in rows}
@@ -129,8 +141,8 @@ def _insert_manifest(
     row = conn.execute(
         "INSERT INTO raw.load_manifest "
         "(dataset, partition_key, params, source_vintage, status, object_key, object_sha256, "
-        "code_version) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING load_id",
+        "bytes_processed, code_version) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING load_id",
         (
             dataset,
             partition_key,
@@ -139,6 +151,7 @@ def _insert_manifest(
             status,
             source.object_key,
             source.object_sha256,
+            source.bytes_processed,
             code_version(),
         ),
     ).fetchone()

@@ -1,0 +1,177 @@
+version: 2
+
+x-modes: &modes
+  accepted_values:
+    arguments:
+      values: ["air", "vessel", "vessel_containerized", "other"]
+
+models:
+  - name: dim_country
+    description: Census Schedule C countries with ISO3 and analysis region.
+    columns:
+      - name: census_cty_code
+        data_tests: [unique, not_null]
+      - name: region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["asia", "mexico", "other"]
+
+  - name: dim_port
+    description: Census Schedule D ports with the coast region of their customs district.
+    columns:
+      - name: port_code
+        data_tests: [unique, not_null]
+      - name: coast_region
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["east", "west", "gulf", "border_north", "border_south", "inland", "noncontiguous", "other"]
+
+  - name: dim_hs
+    description: HS-10 codes seen in the country-level data, with the cases they belong to.
+    columns:
+      - name: hs10
+        data_tests: [unique, not_null]
+
+  - name: fct_imports_monthly
+    description: >
+      Country-level imports by month, HS-10, country and mode. Weight is reported by Census for air and
+      vessel only; `other` (overland for Mexico and Canada) has value but no weight.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs10", "census_cty_code", "mode"]
+    columns:
+      - name: mode
+        data_tests: [*modes]
+      - name: hs10
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_hs')
+                field: hs10
+      - name: census_cty_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: census_cty_code
+
+  - name: fct_imports_port_monthly
+    description: Imports by month, HS-6, country, port of unlading and mode, with the port's coast region.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs6", "census_cty_code", "port_code", "mode"]
+    columns:
+      - name: mode
+        data_tests: [*modes]
+      - name: port_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_port')
+                field: port_code
+      - name: census_cty_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: census_cty_code
+
+  - name: fct_imports_state_monthly
+    description: Imports by month, HS-6, country, state of destination and mode, with the state's group if any.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs6", "census_cty_code", "state", "mode"]
+    columns:
+      - name: mode
+        data_tests: [*modes]
+      - name: census_cty_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: census_cty_code
+      - name: state_group
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["east_bound", "west_control", "ambiguous"]
+
+  - name: ref_emission_factors
+    description: >
+      Freight emission factors, kg CO2e per tonne-km. Ocean and international air from the UK
+      government conversion factors; North American truck and rail from the EPA GHG Emission Factors
+      Hub, made well-to-wheel with the UK's well-to-tank share for the same mode.
+    data_tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "abs(wtw_kg_co2e_per_tkm - ttw_kg_co2e_per_tkm - wtt_kg_co2e_per_tkm) < 0.000002"
+    columns:
+      - name: factor_id
+        data_tests: [unique, not_null]
+      - name: mode
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["ocean", "air", "truck", "rail"]
+      - name: wtw_kg_co2e_per_tkm
+        data_tests: [not_null]
+
+  - name: fct_chokepoint_transits_daily
+    description: >
+      Daily ship transits through the configured chokepoints (IMF PortWatch), by ship type, with
+      estimated trade volume in metric tons (each ship's estimated payload share × deadweight tonnage).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["date", "chokepoint_id"]
+    columns:
+      - name: chokepoint_id
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["chokepoint1", "chokepoint2", "chokepoint4", "chokepoint7"]
+      - name: n_total
+        data_tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: ">= n_cargo"
+
+  - name: fct_chokepoint_transits_monthly
+    description: Monthly totals and daily means of chokepoint transits; a partial month has fewer `days_reported`.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "chokepoint_id"]
+
+  - name: fct_voyages
+    description: >
+      Container-ship voyages (Climate TRACE) from the configured Asian origins and Mexico to US ports.
+      `vessel_type` is `container` for OceanMind and `cargo.container` for Global Fishing Watch voyages.
+      Distance is the distance sailed; emissions are total CO2e (100-year GWP) for the voyage.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["asset_identifier", "started_at"]
+    columns:
+      - name: distance_km
+        data_tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "> 0"
+              config:
+                severity: warn
+      - name: model_source
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["om", "gfw"]
+              config:
+                severity: warn

@@ -69,9 +69,50 @@ uv run shockt ingest census --from 2022-01 --from-archive    # re-parse archived
 uv run shockt loads list                                     # recent loads and raw table sizes
 ```
 
+BTS TransBorder data can't be downloaded by script (bts.gov blocks it), so download each month's ZIP from the [raw data page](https://www.bts.gov/topics/transborder-raw-data) in a browser into `data/manual/bts/`, unchanged. File names don't matter; the loader reads the month from the files inside. It reports any ZIP it can't read, which usually means the download was cut short.
+
+```sh
+uv run shockt ingest bts-transborder                  # every month in data/manual/bts
+uv run shockt ingest bts-transborder --skip-existing  # only months not loaded yet
+uv run shockt ingest bts-transborder --from-archive   # re-parse archived ZIPs, e.g. after a filter change
+```
+
+IMF PortWatch daily chokepoint transits come from a public API, one chokepoint-year per load. The current year is always reloaded, since PortWatch keeps adding days:
+
+```sh
+uv run shockt ingest portwatch                       # all configured chokepoints, config start year to now
+uv run shockt ingest portwatch --skip-existing       # only the current year and anything not yet loaded
+```
+
+Climate TRACE ship voyages come from its public BigQuery dataset, one year per load, billed to your sandbox project (`GCP_PROJECT_ID`, after `gcloud auth application-default login`). Every query is dry-run first and refused above `BQ_MAX_BYTES`; the full 2022-onward load scans about 30 GB of the free 1 TB a month:
+
+```sh
+uv run shockt ingest climatetrace-voyages --dry-run        # bytes each year would scan; no quota used
+uv run shockt ingest climatetrace-voyages                  # load every year from the config start
+uv run shockt ingest climatetrace-voyages --from-archive   # re-parse archived Parquet; no quota used
+```
+
 Rows dropped while loading (country groups, all-zero rows, and for the port and state
 endpoints, countries outside Asia and Mexico) are set in `config/sources.yaml` and recorded in
 each load's manifest `params`.
+
+## Building `core`
+
+dbt builds the `core` schema from `raw`, connecting as `shockt_transform` (`DBT_DATABASE_URL`). Run it after loading data; it reads only succeeded loads, so it's safe to run while a load is in progress.
+
+```sh
+uv run shockt build                               # install dbt packages, load seeds, build models, run tests
+uv run shockt dbt build -s fct_imports_monthly    # any dbt command, e.g. one model
+uv run shockt dbt test                            # tests only
+```
+
+Seeds (reference CSVs) live in `dbt/seeds/` and load into `raw.seed_*`. `seed_emission_factors.csv` is generated from the official UK and EPA factor workbooks, which are archived in the bucket; regenerate it when either publishes a new edition:
+
+```sh
+uv run shockt ref emission-factors
+```
+
+ `seed_port_regions.csv` assigns each port a coast region by customs district; review it before relying on port-level results.
 
 ## Tests
 
@@ -92,6 +133,7 @@ TEST_DATABASE_URL=postgresql://shockt:shockt@localhost:5432/shockt uv run pytest
 
 ```
 config/       source settings and case HS codes
+dbt/          dbt project: seeds, staging views (core_staging) and core tables
 migrations/   Alembic migrations for raw, roles and grants
 src/shockt/   Python package: CLI, archive, manifest and source loaders
 tests/        unit and integration tests, with fixtures from real responses

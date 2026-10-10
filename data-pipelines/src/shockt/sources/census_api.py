@@ -9,16 +9,15 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Literal
-from uuid import UUID
 
 import httpx
 import psycopg
 
 from shockt import http
-from shockt.archive import Archive, object_key, sha256_hex
+from shockt.archive import Archive, object_key
 from shockt.config import CensusApiConfig, CensusDataset, CensusRowFilter, HsCodesConfig
-from shockt.db import copy_rows
-from shockt.manifest import LoadResult, LoadSource, record_failure, run_load
+from shockt.loading import ParsedSource, Target, load_partition
+from shockt.manifest import LoadResult
 
 FieldKind = Literal["text", "int"]
 
@@ -278,53 +277,32 @@ def load_month(
     With `fetch=None`, the bundle is read from the archive instead of requested again. The
     manifest params record the filter applied and how many rows Census returned before it.
     """
-    key = object_key(spec.manifest_dataset, month, BUNDLE_FILENAME)
     params: dict[str, object] = {
         "endpoint": spec.endpoint,
         "month": month,
         "filters": row_filter.model_dump(),
     }
-    source = LoadSource(params=params, source_vintage=None, object_key=None, object_sha256=None)
-    try:
-        if fetch is None:
-            bundle = archive.get(key)
-            params["from_archive"] = True
-        else:
-            bundle = fetch()
-        digest = archive.put(key, bundle, "application/json") if fetch else sha256_hex(bundle)
-        fetched_at = json.loads(bundle)["fetched_at"]
+
+    def parse(bundle: bytes) -> ParsedSource:
         parsed = parse_bundle(spec, bundle, row_filter)
-        params["rows_received"] = parsed.rows_received
-        source = LoadSource(
-            params=params,
+        fetched_at = json.loads(bundle)["fetched_at"]
+        return ParsedSource(
+            rows=parsed.rows,
+            rows_received=parsed.rows_received,
             source_vintage=f"fetched {fetched_at}",
-            object_key=key,
-            object_sha256=digest,
         )
-        rows = parsed.rows
 
-        def write_rows(c: psycopg.Connection, load_id: UUID) -> int:
-            return copy_rows(c, spec.table, spec.columns, ((load_id, *row) for row in rows))
-
-        return run_load(
-            conn,
-            dataset=spec.manifest_dataset,
-            partition_key=month,
-            table=spec.table,
-            source=source,
-            write_rows=write_rows,
-        )
-    except Exception as exc:
-        if conn.info.transaction_status != psycopg.pq.TransactionStatus.IDLE:
-            conn.rollback()
-        record_failure(
-            conn,
-            dataset=spec.manifest_dataset,
-            partition_key=month,
-            source=source,
-            error=f"{type(exc).__name__}: {exc}",
-        )
-        raise
+    return load_partition(
+        conn,
+        archive,
+        Target(dataset=spec.manifest_dataset, table=spec.table, columns=spec.columns),
+        month,
+        key=object_key(spec.manifest_dataset, month, BUNDLE_FILENAME),
+        content_type="application/json",
+        params=params,
+        obtain=fetch,
+        parse=parse,
+    )
 
 
 def _parse_json_rows(response: httpx.Response) -> list[list[str]] | None:

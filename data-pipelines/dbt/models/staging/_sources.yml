@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Source data as loaded by `shockt ingest`. Only rows from succeeded loads are current.
+    tables:
+      - name: load_manifest
+      - name: census_hs
+      - name: census_porths
+      - name: census_statehs
+      - name: portwatch_chokepoints
+      - name: climatetrace_voyages

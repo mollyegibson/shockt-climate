@@ -1,0 +1,86 @@
+{
+ "objectIdFieldName": "ObjectId",
+ "uniqueIdField": {
+  "name": "ObjectId",
+  "isSystemMaintained": true
+ },
+ "globalIdFieldName": "",
+ "exceededTransferLimit": true,
+ "features": [
+  {
+   "attributes": {
+    "date": "2023-01-01",
+    "year": 2023,
+    "month": 1,
+    "day": 1,
+    "portid": "chokepoint2",
+    "portname": "Panama Canal",
+    "n_container": 7,
+    "n_dry_bulk": 13,
+    "n_general_cargo": 2,
+    "n_roro": 1,
+    "n_tanker": 10,
+    "n_cargo": 23,
+    "n_total": 33,
+    "capacity_container": 220387,
+    "capacity_dry_bulk": 648207,
+    "capacity_general_cargo": 7774,
+    "capacity_roro": 5181,
+    "capacity_tanker": 206873,
+    "capacity_cargo": 881551,
+    "capacity": 1088424,
+    "ObjectId": 4359
+   }
+  },
+  {
+   "attributes": {
+    "date": "2023-01-02",
+    "year": 2023,
+    "month": 1,
+    "day": 2,
+    "portid": "chokepoint2",
+    "portname": "Panama Canal",
+    "n_container": 8,
+    "n_dry_bulk": 5,
+    "n_general_cargo": 3,
+    "n_roro": 3,
+    "n_tanker": 12,
+    "n_cargo": 19,
+    "n_total": 31,
+    "capacity_container": 178560,
+    "capacity_dry_bulk": 252995,
+    "capacity_general_cargo": 34783,
+    "capacity_roro": 15779,
+    "capacity_tanker": 268509,
+    "capacity_cargo": 482118,
+    "capacity": 750628,
+    "ObjectId": 4360
+   }
+  },
+  {
+   "attributes": {
+    "date": "2023-01-03",
+    "year": 2023,
+    "month": 1,
+    "day": 3,
+    "portid": "chokepoint2",
+    "portname": "Panama Canal",
+    "n_container": 3,
+    "n_dry_bulk": 13,
+    "n_general_cargo": 2,
+    "n_roro": 2,
+    "n_tanker": 14,
+    "n_cargo": 20,
+    "n_total": 34,
+    "capacity_container": 96668,
+    "capacity_dry_bulk": 580972,
+    "capacity_general_cargo": 5527,
+    "capacity_roro": 2780,
+    "capacity_tanker": 383041,
+    "capacity_cargo": 685948,
+    "capacity": 1068990,
+    "ObjectId": 4361
+   }
+  }
+ ]
+}

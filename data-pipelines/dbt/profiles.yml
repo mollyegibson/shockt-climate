@@ -1,0 +1,16 @@
+# Connection values are set by `shockt build` / `shockt dbt` from DBT_DATABASE_URL.
+shockt:
+  target: default
+  outputs:
+    default:
+      type: postgres
+      host: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT') | int }}"
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_DBNAME') }}"
+      sslmode: "{{ env_var('DBT_SSLMODE') }}"
+      schema: core
+      # Objects are owned by the shared role, so any member can rebuild them.
+      role: shockt_transform
+      threads: 4

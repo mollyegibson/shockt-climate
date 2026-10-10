@@ -39,8 +39,9 @@ census_state_port:
   drop_rows_without_air_or_vessel_weight: true
 
 bts_transborder:
+  # Monthly ZIPs downloaded by hand from https://www.bts.gov/topics/transborder-raw-data
   manual_dir: data/manual/bts
-  trade_type: 2 # imports
+  trade_type: "2" # imports
   country_codes: ["2010"] # Mexico
   hs2_chapters: ["84", "85"]
   tables: [dot2, dot3]
@@ -58,5 +59,17 @@ climatetrace:
   table: trace-data-383422.climate_trace.shipping_voyages
   origin_iso3: [CHN, HKG, IDN, IND, JPN, KOR, MEX, MYS, PHL, SGP, THA, TWN, VNM]
   destination_iso3: [USA]
-  # Applied only if the table has a vessel type column (confirmed in spike 5).
-  vessel_types: [container]
+  # All ship types on these lanes are loaded (about 70k voyages for 2022 onward); core filters to
+  # container ships ("container" from OceanMind, "cargo.container" from Global Fishing Watch).
+
+emission_factors:
+  # Hybrid set: UK factors for ocean and international air; EPA factors for North American
+  # truck and rail, made well-to-wheel with the UK's fuel-supply share for the same mode.
+  uk:
+    url: https://assets.publishing.service.gov.uk/media/6a6c9748862aaf18d9c62ac9/ghg-conversion-factors-2026-flat-format-revised.xlsx
+    version: "2026 (revised July 2026)"
+    publication: https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026
+  epa:
+    url: https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx
+    version: "2025"
+    publication: https://www.epa.gov/climateleadership/ghg-emission-factors-hub

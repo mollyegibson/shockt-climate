@@ -39,11 +39,49 @@ class CensusApiConfig(BaseModel):
     filters: dict[CensusDataset, CensusRowFilter]
 
 
+class BtsTransborderConfig(BaseModel):
+    manual_dir: str
+    """Directory of monthly ZIPs downloaded from bts.gov, relative to `data-pipelines/`."""
+    trade_type: str
+    country_codes: list[str]
+    hs2_chapters: list[str]
+    tables: list[Literal["dot2", "dot3"]]
+
+
+class PortwatchConfig(BaseModel):
+    query_url: str
+    page_size: int
+    chokepoints: dict[str, str]
+    """PortWatch `portid` → chokepoint name."""
+
+
+class ClimateTraceConfig(BaseModel):
+    table: str
+    """Fully qualified BigQuery table, project.dataset.table."""
+    origin_iso3: list[str]
+    destination_iso3: list[str]
+
+
+class FactorSource(BaseModel):
+    url: str
+    version: str
+    publication: str
+
+
+class EmissionFactorsConfig(BaseModel):
+    uk: FactorSource
+    epa: FactorSource
+
+
 class SourcesConfig(BaseModel):
     """The parts of `config/sources.yaml` the loaders read so far; other sections are ignored."""
 
     date_range: DateRange
     census_api: CensusApiConfig
+    bts_transborder: BtsTransborderConfig
+    portwatch: PortwatchConfig
+    climatetrace: ClimateTraceConfig
+    emission_factors: EmissionFactorsConfig
 
 
 class HsPrefix(BaseModel):

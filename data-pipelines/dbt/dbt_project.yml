@@ -1,0 +1,51 @@
+name: shockt
+version: "0.1.0"
+config-version: 2
+profile: shockt
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  shockt:
+    staging:
+      +schema: core_staging
+      +materialized: view
+      +grants:
+        select: ["shockt_analyst"]
+    core:
+      +schema: core
+      +materialized: table
+      +grants:
+        select: ["shockt_analyst", "shockt_app"]
+
+seeds:
+  shockt:
+    +schema: raw
+    +grants:
+      select: ["shockt_analyst"]
+    seed_country_codes:
+      +column_types: {census_cty_code: text, cty_name: text, iso2: text, iso3: text, region: text, source: text}
+    seed_port_regions:
+      +column_types: {port_code: text, port_name: text, district_code: text, coast_region: text, source: text}
+    seed_hs_case_codes:
+      +column_types: {hs_prefix: text, level: text, label: text, cases: text, source: text}
+    seed_state_groups:
+      +column_types: {state: text, state_group: text, rationale: text, source: text}
+    seed_emission_factors:
+      +column_types:
+        factor_id: text
+        mode: text
+        variant: text
+        region: text
+        ttw_kg_co2e_per_tkm: numeric
+        wtt_kg_co2e_per_tkm: numeric
+        wtw_kg_co2e_per_tkm: numeric
+        ttw_source: text
+        wtt_source: text
+        gwp_basis: text
+        notes: text
