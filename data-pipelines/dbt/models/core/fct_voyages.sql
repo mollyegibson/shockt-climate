@@ -1,4 +1,4 @@
--- Container-ship voyages from the configured origins to US ports, one row per voyage.
+-- Container-ship voyages from the configured origins to US ports, one row per voyage, without voyages whose end point contradicts their end port.
 with origin_regions as (
     select distinct iso3, region
     from {{ ref('dim_country') }}
@@ -28,3 +28,4 @@ from {{ ref('stg_climatetrace_voyages') }} as v
 left join origin_regions on origin_regions.iso3 = v.start_iso3
 left join {{ ref('dim_climatetrace_ports') }} as ports on ports.end_port_id = v.end_port_id
 where {{ is_container_ship('v.vessel_type') }}
+    and not v.end_point_contradicts_end_port

@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from shockt.cli import _already_loaded
+from shockt.cli import _already_loaded, format_size
 from shockt.months import MonthRange
 
 
@@ -48,3 +48,10 @@ def test_a_year_is_already_loaded_only_with_the_same_months_and_params() -> None
     assert not _already_loaded(loaded, months, origin_iso3=["CHN", "MEX", "TWN"])
     assert not _already_loaded(loaded, MonthRange("2023-01", "2023-06"), origin_iso3=["MEX", "TWN"])
     assert not _already_loaded(None, months)
+
+
+def test_format_size_uses_kb_below_one_megabyte() -> None:
+    assert format_size(16_384) == "16 kB"
+    assert format_size(999_999) == "1,000 kB"
+    assert format_size(1_000_000) == "1.0 MB"
+    assert format_size(106_864_640) == "106.9 MB"

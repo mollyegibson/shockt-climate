@@ -13,6 +13,11 @@ air_ports:
   # Largest share of case air tonnage allowed at Census ports with no matched airport.
   max_unmatched_share: 0.01
 
+climatetrace:
+  # Largest share of container voyages allowed to be excluded because their recorded end point
+  # contradicts their end port (a "US arrival" that ends outside the US).
+  max_contradicting_end_point_share: 0.005
+
 census_ports:
   # Largest share of case vessel or air tonnage allowed at Census ports dim_port can't place.
   max_unlocated_share: 0.01

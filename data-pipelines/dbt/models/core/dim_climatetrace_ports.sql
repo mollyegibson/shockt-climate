@@ -1,8 +1,8 @@
--- US arrival ports in the Climate TRACE voyages: location, most common name, coast region and voyage counts.
+-- US arrival ports in the Climate TRACE voyages: location, most common name, coast region and voyage counts, from voyages whose end point doesn't contradict their end port.
 with arrivals as (
     select end_port_id, end_port, end_lon, end_lat, vessel_type
     from {{ ref('stg_climatetrace_voyages') }}
-    where end_iso3 = 'USA'
+    where end_iso3 = 'USA' and not end_point_contradicts_end_port
 ),
 
 names as (

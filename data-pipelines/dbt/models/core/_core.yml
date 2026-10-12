@@ -176,6 +176,8 @@ models:
       Container-ship voyages (Climate TRACE) from the configured Asian origins and Mexico to US ports.
       `vessel_type` is `container` for OceanMind and `cargo.container` for Global Fishing Watch voyages.
       Distance is the distance sailed; emissions are total CO2e (100-year GWP) for the voyage.
+      Voyages whose recorded end point contradicts their end port (a US arrival ending outside the US)
+      are excluded; `assert_contradicting_end_points_within_limit` bounds how many.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

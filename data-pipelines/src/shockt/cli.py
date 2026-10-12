@@ -591,6 +591,13 @@ def dbt_command(ctx: typer.Context) -> None:
         raise typer.Exit(1)
 
 
+def format_size(size_bytes: int) -> str:
+    """A table size in MB, or in kB below 1 MB so small tables don't round to 0.0 MB."""
+    if size_bytes < 1_000_000:
+        return f"{size_bytes / 1e3:,.0f} kB"
+    return f"{size_bytes / 1e6:,.1f} MB"
+
+
 @loads_app.command("retire")
 def loads_retire(
     apply: Annotated[bool, typer.Option(help="Retire them; without it, only list them.")] = False,
@@ -645,9 +652,9 @@ def loads_list(
             "WHERE n.nspname = 'raw' AND c.relkind = 'r' ORDER BY 2 DESC"
         ).fetchall()
         total = sum(size for _, size in sizes)
-        typer.echo(f"\nraw tables: {total / 1e6:,.1f} MB")
+        typer.echo(f"\nraw tables: {format_size(total)}")
         for table, size in sizes:
-            typer.echo(f"  {table:28} {size / 1e6:8,.1f} MB")
+            typer.echo(f"  {table:28} {format_size(size):>10}")
 
 
 if __name__ == "__main__":

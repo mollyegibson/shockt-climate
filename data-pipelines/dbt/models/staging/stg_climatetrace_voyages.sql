@@ -17,6 +17,7 @@ select
     v.start_lat,
     v.end_lon,
     v.end_lat,
+    v.other5 = 'USA' and {{ coast_region('v.end_lon', 'v.end_lat') }} = 'other' as end_point_contradicts_end_port,
     v.other8 as is_international,
     v.activity as distance_nm,
     v.activity * 1.852 as distance_km,

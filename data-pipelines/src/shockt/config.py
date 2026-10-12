@@ -200,11 +200,18 @@ class CensusPortsConfig(ConfigModel):
     """Largest share of case vessel or air tonnage allowed at Census ports with no point."""
 
 
+class ClimateTraceTransformsConfig(ConfigModel):
+    max_contradicting_end_point_share: float
+    """Largest share of container voyages excluded for an end point that contradicts the end
+    port."""
+
+
 class TransformsConfig(ConfigModel):
     """Settings the dbt models read; `shockt build` passes them to dbt as vars."""
 
     air_ports: AirPortsConfig
     census_ports: CensusPortsConfig
+    climatetrace: ClimateTraceTransformsConfig
 
 
 class HsPrefix(ConfigModel):
