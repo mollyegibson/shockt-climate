@@ -36,5 +36,16 @@ class MonthRange:
     def contains(self, day: date) -> bool:
         return self.first <= f"{day:%Y-%m}" <= self.last
 
+    def whole_quarters(self) -> list[tuple[int, int]]:
+        """(year, quarter) of every calendar quarter whose three months all fall in the range."""
+        quarters = []
+        for year in self.years():
+            for quarter in range(1, 5):
+                first = f"{year}-{3 * quarter - 2:02d}"
+                last = f"{year}-{3 * quarter:02d}"
+                if self.first <= first and last <= self.last:
+                    quarters.append((year, quarter))
+        return quarters
+
     def as_params(self) -> dict[str, str]:
         return {"first_month": self.first, "last_month": self.last}

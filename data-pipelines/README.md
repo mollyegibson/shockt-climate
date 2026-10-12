@@ -106,9 +106,17 @@ uv run shockt ingest climatetrace-voyages                  # load voyages starti
 uv run shockt ingest climatetrace-voyages --from-archive   # re-parse archived Parquet; no quota used
 ```
 
+Census State/Port Imports come as one fixed-width file per quarter, for all goods. Only quarters entirely inside `date_range` load; with no end month, quarters Census hasn't published yet are reported and skipped. The filter (origins, the destination states in `census_state_port.states`, rows with air or vessel weight) is in `config/sources.yaml`:
+
+```sh
+uv run shockt ingest census-state-port                     # every whole quarter in date_range
+uv run shockt ingest census-state-port --skip-existing     # only quarters not yet loaded
+uv run shockt ingest census-state-port --from-archive      # re-parse archived ZIPs, e.g. after a filter change
+```
+
 Rows dropped while loading (country groups, all-zero rows, and for the port and state
-endpoints, countries outside Asia and Mexico) are set in `config/sources.yaml` and recorded in
-each load's manifest `params`.
+endpoints, countries outside the origins in `config/origins.yaml`) are set in `config/sources.yaml`
+and recorded in each load's manifest `params`.
 
 ## Building `core`
 

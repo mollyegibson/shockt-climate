@@ -55,3 +55,19 @@ def test_format_size_uses_kb_below_one_megabyte() -> None:
     assert format_size(999_999) == "1,000 kB"
     assert format_size(1_000_000) == "1.0 MB"
     assert format_size(106_864_640) == "106.9 MB"
+
+
+def test_whole_quarters_keeps_only_quarters_entirely_inside_the_range() -> None:
+    assert MonthRange("2022-01", "2022-12").whole_quarters() == [
+        (2022, 1),
+        (2022, 2),
+        (2022, 3),
+        (2022, 4),
+    ]
+    assert MonthRange("2022-02", "2023-04").whole_quarters() == [
+        (2022, 2),
+        (2022, 3),
+        (2022, 4),
+        (2023, 1),
+    ]
+    assert MonthRange("2026-07", "2026-08").whole_quarters() == []

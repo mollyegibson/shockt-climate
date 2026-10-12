@@ -91,6 +91,40 @@ models:
                 to: ref('dim_country')
                 field: census_cty_code
 
+  - name: fct_imports_state_port_quarterly
+    description: >
+      Imports of all goods (no HS code) by quarter, state of destination, port of unlading, port of
+      entry, country and mode, from Census State/Port Imports, with the unlading port's coast region.
+      Supports the Case 2 inland-routing check: the share of vessel imports bound for a state that
+      was unladen on the West Coast.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["quarter", "state", "unlading_port_code", "entry_port_code", "census_cty_code", "mode"]
+    columns:
+      - name: mode
+        data_tests: [*modes]
+      - name: unlading_port_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_port')
+                field: port_code
+      - name: entry_port_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_port')
+                field: port_code
+      - name: census_cty_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: census_cty_code
+      - name: unlading_coast_region
+        data_tests: [not_null]
+
   - name: agg_air_vessel_kg_per_usd
     description: >
       Kg per dollar of air and vessel imports by HS-6 and origin over the loaded months, and across all

@@ -23,6 +23,7 @@ from shockt.sources import (
     bts_transborder,
     census_api,
     census_concordance,
+    census_state_port,
     climatetrace,
     denue,
     ghg_factors,
@@ -345,6 +346,64 @@ def ingest_climatetrace_voyages(
             note = " (replaced earlier load)" if result.superseded_load_id else ""
             typer.echo(
                 f"{climatetrace.DATASET} {year}: {result.row_count:,} voyages "
+                f"in {time.monotonic() - started:.1f}s{note}"
+            )
+
+
+@ingest_app.command("census-state-port")
+def ingest_census_state_port(
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
+    skip_existing: Annotated[
+        bool, typer.Option(help="Skip quarters that already have a load.")
+    ] = False,
+    from_archive: Annotated[
+        bool, typer.Option(help="Re-parse archived ZIPs instead of downloading them.")
+    ] = False,
+) -> None:
+    """Load Census State/Port Imports for every quarter entirely inside the date range."""
+    config = sources_config()
+    state_port = config.census_state_port
+    months = _month_range(start, end)
+    open_end = (end or config.date_range.end_month) is None
+    countries = origins_config().country_filter() if state_port.origins_only else None
+    settings = get_settings()
+    archive = NeonArchive(settings)
+    with make_client(timeout_seconds=300) as client, connect(settings) as conn:
+        done = (
+            manifest.succeeded_partitions(conn, census_state_port.DATASET)
+            if skip_existing
+            else set()
+        )
+        archived = (
+            manifest.archived_partitions(conn, census_state_port.DATASET) if from_archive else set()
+        )
+        for year, quarter in months.whole_quarters():
+            key = census_state_port.partition_key(year, quarter)
+            if key in done:
+                typer.echo(f"{census_state_port.DATASET} {key}: skipped (already loaded)")
+                continue
+            if from_archive and key not in archived:
+                typer.echo(f"{census_state_port.DATASET} {key}: skipped (not archived)")
+                continue
+            started = time.monotonic()
+            fetch: Callable[[], bytes] | None = None
+            version: str | None = None
+            if not from_archive:
+                fetched = census_state_port.fetch_quarter(client, state_port, year, quarter)
+                if fetched is None:
+                    if open_end:
+                        typer.echo(f"{census_state_port.DATASET} {key}: not published yet")
+                        break
+                    raise typer.BadParameter(f"{key} is inside --to but Census hasn't published it")
+                body, version = fetched
+                fetch = partial(bytes, body)
+            result = census_state_port.load_quarter(
+                conn, archive, state_port, countries, year, quarter, fetch, version
+            )
+            note = " (replaced earlier load)" if result.superseded_load_id else ""
+            typer.echo(
+                f"{census_state_port.DATASET} {key}: {result.row_count:,} rows kept "
                 f"in {time.monotonic() - started:.1f}s{note}"
             )
 
