@@ -9,6 +9,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from shockt.config import ClimateTraceConfig
+from shockt.months import MonthRange
 from shockt.sources.climatetrace import (
     METADATA_KEY,
     RESULT_COLUMNS,
@@ -22,9 +23,10 @@ from shockt.sources.climatetrace import (
 )
 from tests.conftest import MemoryArchive
 
-CONFIG = ClimateTraceConfig(
-    table="project.dataset.shipping_voyages", origin_iso3=["TWN", "MEX"], destination_iso3=["USA"]
-)
+YEAR_2024 = MonthRange("2024-01", "2024-12")
+ORIGINS = ["TWN", "MEX"]
+
+CONFIG = ClimateTraceConfig(table="project.dataset.shipping_voyages")
 
 
 def voyage(**overrides: object) -> dict[str, object]:
@@ -88,11 +90,11 @@ class FakeRunner:
 
 
 def parquet(rows: list[dict[str, object]], year: int) -> bytes:
-    return fetch_year(FakeRunner(10**9, rows), CONFIG, year, max_bytes=10**10)
+    return fetch_year(FakeRunner(10**9, rows), CONFIG, ORIGINS, year, max_bytes=10**10)
 
 
 def test_year_query_passes_values_as_parameters() -> None:
-    query = year_query(CONFIG, 2024)
+    query = year_query(CONFIG, ORIGINS, 2024)
 
     assert "@start" in query.sql and "@origins" in query.sql
     assert "TWN" not in query.sql and "2024" not in query.sql
@@ -104,7 +106,7 @@ def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
     runner = FakeRunner(estimate=200 * 10**9, rows=[voyage()])
 
     with pytest.raises(ClimateTraceError, match="200.0 GB"):
-        fetch_year(runner, CONFIG, 2024, max_bytes=100 * 10**9)
+        fetch_year(runner, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
 
     assert runner.runs == []
 
@@ -112,7 +114,7 @@ def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
 def test_fetch_year_runs_with_the_cap_and_records_metadata() -> None:
     runner = FakeRunner(estimate=6 * 10**9, rows=[voyage()])
 
-    body = fetch_year(runner, CONFIG, 2024, max_bytes=100 * 10**9)
+    body = fetch_year(runner, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
 
     assert runner.runs == [100 * 10**9]
     metadata = json.loads(pq.read_table(io.BytesIO(body)).schema.metadata[METADATA_KEY])
@@ -122,7 +124,7 @@ def test_fetch_year_runs_with_the_cap_and_records_metadata() -> None:
 
 
 def test_parse_year_maps_columns_and_drops_duplicate_voyages() -> None:
-    parsed = parse_year(parquet([voyage(), voyage()], 2024), 2024)
+    parsed = parse_year(parquet([voyage(), voyage()], 2024), 2024, YEAR_2024)
 
     assert parsed.rows_received == 2
     assert len(parsed.rows) == 1
@@ -140,12 +142,12 @@ def test_parse_year_rejects_a_voyage_from_another_year() -> None:
     body = parquet([voyage(start_date=datetime(2023, 12, 31, tzinfo=UTC))], 2024)
 
     with pytest.raises(ClimateTraceError, match="not in 2024"):
-        parse_year(body, 2024)
+        parse_year(body, 2024, YEAR_2024)
 
 
 def test_parse_year_rejects_a_file_archived_for_another_year() -> None:
     with pytest.raises(ClimateTraceError, match="for 2024, not 2025"):
-        parse_year(parquet([voyage()], 2024), 2025)
+        parse_year(parquet([voyage()], 2024), 2025, MonthRange("2025-01", "2025-12"))
 
 
 def test_load_year_records_bytes_processed_in_the_manifest(
@@ -153,7 +155,7 @@ def test_load_year_records_bytes_processed_in_the_manifest(
 ) -> None:
     body = parquet([voyage(), voyage(asset_identifier="om-imo-1")], 2024)
 
-    result = load_year(conn, memory_archive, CONFIG, 2024, lambda: body)
+    result = load_year(conn, memory_archive, CONFIG, ORIGINS, 2024, YEAR_2024, lambda: body)
 
     assert memory_archive.objects[archive_key(2024)] == body
     assert result.row_count == 2
@@ -170,4 +172,48 @@ def test_parse_year_rejects_an_archive_without_port_coordinates() -> None:
     body = parquet([old], 2024)
 
     with pytest.raises(ClimateTraceError, match="reload the year"):
-        parse_year(body, 2024)
+        parse_year(body, 2024, YEAR_2024)
+
+
+def test_parse_year_keeps_only_voyages_starting_in_the_requested_months() -> None:
+    july = voyage(asset_identifier="om-imo-1", start_date=datetime(2024, 7, 1, tzinfo=UTC))
+    body = parquet([voyage(), july], 2024)
+
+    parsed = parse_year(body, 2024, MonthRange("2024-01", "2024-06"))
+
+    assert parsed.rows_received == 2
+    assert [row[RESULT_COLUMNS.index("asset_identifier")] for row in parsed.rows] == [
+        "om-imo-9757876"
+    ]
+
+
+def test_load_year_records_the_months_loaded(
+    conn: psycopg.Connection, memory_archive: MemoryArchive
+) -> None:
+    body = parquet([voyage()], 2024)
+
+    result = load_year(
+        conn, memory_archive, CONFIG, ORIGINS, 2024, MonthRange("2024-01", "2024-06"), lambda: body
+    )
+
+    params = conn.execute(
+        "SELECT params FROM raw.load_manifest WHERE load_id = %s", (result.load_id,)
+    ).fetchone()
+    assert params is not None
+    assert (params[0]["first_month"], params[0]["last_month"]) == ("2024-01", "2024-06")
+    assert params[0]["origin_iso3"] == ORIGINS
+
+
+def test_load_year_rejects_months_outside_the_year(
+    conn: psycopg.Connection, memory_archive: MemoryArchive
+) -> None:
+    with pytest.raises(ClimateTraceError, match="not all in 2024"):
+        load_year(
+            conn,
+            memory_archive,
+            CONFIG,
+            ORIGINS,
+            2024,
+            MonthRange("2024-06", "2025-02"),
+            lambda: b"",
+        )

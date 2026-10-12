@@ -9,7 +9,7 @@ trade type, countries and HS-2 chapters.
 import io
 import re
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -18,7 +18,7 @@ import polars as pl
 import psycopg
 
 from shockt.archive import Archive, object_key, sha256_hex
-from shockt.config import BtsTransborderConfig
+from shockt.config import BtsTransborderConfig, CountryFilter
 from shockt.loading import ParsedSource, Target, load_partition
 from shockt.manifest import LoadResult
 
@@ -53,6 +53,10 @@ _REQUIRED = {
 _COMMON = ("VALUE", "SHIPWT", "FREIGHT_CHARGES", "DF", "CONTCODE", "YEAR")
 _INT_COLUMNS = ("YEAR", "MONTH", "TRDTYPE", "DISAGMOT", "VALUE", "SHIPWT", "FREIGHT_CHARGES", "DF")
 _MONTHLY_MEMBER = re.compile(r"(?:^|/)(dot[123])_(\d{2})(\d{2})\.csv$", re.IGNORECASE)
+
+
+IMPORTS = 2
+"""TransBorder's `TRDTYPE` for imports; the loader keeps imports only."""
 
 
 class BtsFileError(Exception):
@@ -128,8 +132,11 @@ def scan_dir(directory: Path, tables: list[str]) -> tuple[dict[str, MonthFile], 
     return months, errors
 
 
-def parse_zip(body: bytes, config: BtsTransborderConfig) -> ParsedSource:
-    """Filtered rows for `raw.bts_transborder` from one month's ZIP."""
+def parse_zip(
+    body: bytes, config: BtsTransborderConfig, countries: CountryFilter, chapters: Sequence[str]
+) -> ParsedSource:
+    """Filtered rows for `raw.bts_transborder` from one month's ZIP: imports from `countries` in
+    HS-2 `chapters`."""
     with zipfile.ZipFile(io.BytesIO(body)) as zf:
         members = monthly_members(zf.namelist())
         rows: list[tuple[object, ...]] = []
@@ -143,7 +150,7 @@ def parse_zip(body: bytes, config: BtsTransborderConfig) -> ParsedSource:
             with zf.open(name) as f:
                 frame = pl.read_csv(f.read(), infer_schema_length=0, encoding="utf8-lossy")
             received += frame.height
-            rows.extend(_table_rows(table, month, frame, config))
+            rows.extend(_table_rows(table, month, frame, config, countries, chapters))
     return ParsedSource(
         rows=rows,
         rows_received=received,
@@ -152,7 +159,12 @@ def parse_zip(body: bytes, config: BtsTransborderConfig) -> ParsedSource:
 
 
 def _table_rows(
-    table: str, month: str, frame: pl.DataFrame, config: BtsTransborderConfig
+    table: str,
+    month: str,
+    frame: pl.DataFrame,
+    config: BtsTransborderConfig,
+    countries: CountryFilter,
+    chapters: Sequence[str],
 ) -> list[tuple[object, ...]]:
     missing = [c for c in (*_REQUIRED[table], *_COMMON) if c not in frame.columns]
     if missing:
@@ -171,9 +183,15 @@ def _table_rows(
     if wrong_period.height:
         raise BtsFileError(f"{table}: {wrong_period.height} rows are not for {month}")
     kept = frame.filter(
-        (pl.col("TRDTYPE") == int(config.trade_type))
-        & pl.col("COUNTRY").is_in(config.country_codes)
-        & pl.col("COMMODITY2").is_in(config.hs2_chapters)
+        (pl.col("TRDTYPE") == IMPORTS)
+        & (
+            pl.col("COUNTRY").is_in(countries.codes)
+            | pl.any_horizontal(
+                pl.lit(False),
+                *(pl.col("COUNTRY").str.starts_with(p) for p in countries.code_prefixes),
+            )
+        )
+        & pl.col("COMMODITY2").is_in(list(chapters))
     )
     return [
         (table, *row)
@@ -213,12 +231,19 @@ def load_month(
     month: str,
     obtain: Callable[[], bytes] | None,
     config: BtsTransborderConfig,
+    countries: CountryFilter,
+    chapters: Sequence[str],
     original_filename: str | None = None,
 ) -> LoadResult:
-    """Archive one month's ZIP (or reuse the archived copy when `obtain` is None) and load it."""
+    """Archive one month's ZIP (or reuse the archived copy when `obtain` is None) and load the
+    imports from `countries` in HS-2 `chapters`."""
     params: dict[str, object] = {
         "month": month,
-        "filters": config.model_dump(exclude={"manual_dir"}),
+        "filters": {
+            **config.model_dump(exclude={"manual_dir"}),
+            "countries": countries.model_dump(),
+            "hs2_chapters": list(chapters),
+        },
     }
     if original_filename is not None:
         params["original_filename"] = original_filename
@@ -231,5 +256,5 @@ def load_month(
         content_type="application/zip",
         params=params,
         obtain=obtain,
-        parse=lambda body: parse_zip(body, config),
+        parse=lambda body: parse_zip(body, config, countries, chapters),
     )

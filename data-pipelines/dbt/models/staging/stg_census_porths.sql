@@ -13,7 +13,7 @@ select
     p.cnt_wgt_mo as containerized_weight_kg,
     p.load_id
 from {{ source('raw', 'census_porths') }} as p
-where p.load_id in ({{ succeeded_loads('census_porths') }})
+where p.load_id in ({{ current_census_loads('census_porths') }})
     and p.summary_lvl = 'DET'
     and p.cty_code <> '-'
     and p.port <> '-'

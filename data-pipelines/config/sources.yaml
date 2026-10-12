@@ -8,11 +8,6 @@ date_range:
 
 census_api:
   base_url: https://api.census.gov/data/timeseries/intltrade/imports
-  # Deepest HS level each endpoint serves (plan spike 1).
-  comm_lvl:
-    hs: HS10
-    porths: HS6
-    statehs: HS6
   # An HS-4 prefix at HS-10 can take about a minute per month.
   timeout_seconds: 300
   # Rows dropped as they load, to fit Neon's free-tier storage. The archive keeps every
@@ -21,19 +16,15 @@ census_api:
     hs:
       drop_country_groups: true # SUMMARY_LVL = CGP, sums of individual countries
       drop_all_zero: true # every value, weight and quantity is zero
-    porths: &asia_and_mexico
+    porths: &origins_only
       drop_country_groups: true
       drop_all_zero: true
-      countries:
-        code_prefixes: ["5"] # Asia, including the Middle East and South Asia
-        codes: ["2010", "-"] # Mexico; the all-countries total
-    statehs: *asia_and_mexico
+      origins_only: true # countries in config/origins.yaml, and the all-countries total
+    statehs: *origins_only
 
 census_state_port:
   url_template: https://www.census.gov/trade/downloads/additional/ISTPORT/ISTPORT{yy}Q{quarter}.ZIP
-  # Census Schedule C codes starting with "5" cover Asia, including the Middle East and South Asia.
-  country_code_prefixes: ["5"]
-  country_codes: ["2010"] # Mexico
+  origins_only: true # countries in config/origins.yaml
   # Destination states loaded: the ones the case analyses look at. Every state doesn't fit in the
   # free tier.
   states:
@@ -51,30 +42,27 @@ census_state_port:
 bts_transborder:
   # Monthly ZIPs downloaded by hand from https://www.bts.gov/topics/transborder-raw-data
   manual_dir: data/manual/bts
-  trade_type: "2" # imports
-  country_codes: ["2010"] # Mexico
-  hs2_chapters: ["84", "85"]
   tables: [dot2, dot3]
 
 portwatch:
   query_url: https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query
-  page_size: 1000
+  # PortWatch IDs; names come from the source. The page size is read from the layer's metadata.
   chokepoints:
-    chokepoint1: Suez Canal
-    chokepoint2: Panama Canal
-    chokepoint4: Bab el-Mandeb Strait
-    chokepoint7: Cape of Good Hope
+    - chokepoint1 # Suez Canal
+    - chokepoint2 # Panama Canal
+    - chokepoint4 # Bab el-Mandeb Strait
+    - chokepoint7 # Cape of Good Hope
 
 climatetrace:
   table: trace-data-383422.climate_trace.shipping_voyages
-  origin_iso3: [CHN, HKG, IDN, IND, JPN, KOR, MEX, MYS, PHL, SGP, THA, TWN, VNM]
-  destination_iso3: [USA]
+  # Origins are the countries in config/origins.yaml, by their ISO3 codes in seed_census_countries;
+  # the destination is always the United States.
   # All ship types on these lanes are loaded (about 70k voyages for 2022 onward); core filters to
   # container ships ("container" from OceanMind, "cargo.container" from Global Fishing Watch).
 
 emission_factors:
-  # Hybrid set: UK factors for ocean and international air; EPA factors for North American
-  # truck and rail, made well-to-wheel with the UK's fuel-supply share for the same mode.
+  # Workbooks loaded whole by `shockt ingest uk-ghg-factors` and `shockt ingest epa-ghg-hub`;
+  # core.ref_emission_factors derives every freight factor from them.
   uk:
     url: https://assets.publishing.service.gov.uk/media/6a6c9748862aaf18d9c62ac9/ghg-conversion-factors-2026-flat-format-revised.xlsx
     version: "2026 (revised July 2026)"
@@ -88,6 +76,11 @@ census_schedules:
   # Census reference lists of country codes (Schedule C) and districts and ports (Schedule D).
   schedule_c_url: https://www.census.gov/foreign-trade/schedules/c/country.txt
   schedule_d_url: https://www.census.gov/foreign-trade/schedules/d/distcode.html
+  # Census-specific ISO2 codes with no ISO 3166 entry, mapped to the ISO3 code other sources (such
+  # as Climate TRACE) use. A Census code without an entry here or in ISO 3166 gets no ISO3.
+  iso3_overrides:
+    GZ: PSE # Gaza Strip
+    WE: PSE # West Bank
 
 reference_sources:
   # Reference datasets loaded into raw for placing nodes (plan section 6.2). Each is one
@@ -106,6 +99,12 @@ reference_sources:
     url_template: https://www.census.gov/foreign-trade/reference/codes/concordance/impconcord{yy}.xlsx
   denue:
     # INEGI DENUE, manufacturing (SCIAN 31-33). Only establishments in industries the import
-    # concordance maps from the case HS codes are kept; SCIAN and NAICS agree at this many digits.
+    # concordance maps from the case HS codes are kept, matched at the five-digit industry level,
+    # where the US, Canada and Mexico agreed a comparable classification (2022 NAICS Manual,
+    # https://www.census.gov/naics/reference_files_tools/2022_NAICS_Manual.pdf).
     url: https://www.inegi.org.mx/contenidos/masiva/denue/denue_00_31-33_csv.zip
     industry_digits: 5
+    # Cases whose HS codes select DENUE industries: the ones whose route runs through a Mexican
+    # assembly site.
+    cases:
+      - tariffs_2025

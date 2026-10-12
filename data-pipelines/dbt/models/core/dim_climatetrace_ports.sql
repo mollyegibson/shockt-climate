@@ -19,7 +19,7 @@ ports as (
         percentile_cont(0.5) within group (order by end_lon) as lon,
         percentile_cont(0.5) within group (order by end_lat) as lat,
         count(*) as voyages,
-        count(*) filter (where vessel_type in ('container', 'cargo.container')) as container_voyages
+        count(*) filter (where {{ is_container_ship('vessel_type') }}) as container_voyages
     from arrivals
     group by end_port_id
 )

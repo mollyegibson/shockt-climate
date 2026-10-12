@@ -55,6 +55,9 @@ _VALUE_FIELDS = (
 @dataclass(frozen=True)
 class DatasetSpec:
     endpoint: CensusDataset
+    comm_lvl: str
+    """The deepest HS level the endpoint serves; `porths` and `statehs` answer HS-10 requests with
+    HTTP 204 (plan spike 1)."""
     requested: tuple[Field, ...]
     """Fields named in the `get` parameter, in request order."""
     predicates: tuple[Field, ...]
@@ -80,6 +83,7 @@ class DatasetSpec:
 DATASETS: dict[str, DatasetSpec] = {
     "hs": DatasetSpec(
         endpoint="hs",
+        comm_lvl="HS10",
         requested=(
             _text("I_COMMODITY"),
             _text("I_COMMODITY_SDESC"),
@@ -98,6 +102,7 @@ DATASETS: dict[str, DatasetSpec] = {
     ),
     "porths": DatasetSpec(
         endpoint="porths",
+        comm_lvl="HS6",
         requested=(
             _text("I_COMMODITY"),
             _text("CTY_CODE"),
@@ -112,6 +117,7 @@ DATASETS: dict[str, DatasetSpec] = {
     ),
     "statehs": DatasetSpec(
         endpoint="statehs",
+        comm_lvl="HS6",
         requested=(
             _text("I_COMMODITY"),
             _text("CTY_CODE"),
@@ -182,7 +188,7 @@ def fetch_bundle(
     params = {
         "get": ",".join(f.api_name for f in spec.requested),
         "time": month,
-        "COMM_LVL": config.comm_lvl[spec.endpoint],
+        "COMM_LVL": spec.comm_lvl,
         "I_COMMODITY": f"{hs_prefix}*",
     }
     response = http.get(

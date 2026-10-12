@@ -91,18 +91,18 @@ uv run shockt ingest denue                  # Mexican manufacturers in the case 
 
 DENUE keeps only establishments in the industries the import concordance maps from `config/hs_codes.yaml`. After changing HS codes, reload it without downloading again: `uv run shockt ingest denue --from-archive`.
 
-IMF PortWatch daily chokepoint transits come from a public API, one chokepoint-year per load. The current year is always reloaded, since PortWatch keeps adding days:
+IMF PortWatch daily chokepoint transits come from a public API, one chokepoint-year per load. Each year is fetched and archived whole, and only days inside `date_range` (or `--from`/`--to`, as `YYYY-MM`) load. The current year is always reloaded, since PortWatch keeps adding days:
 
 ```sh
-uv run shockt ingest portwatch                       # all configured chokepoints, config start year to now
-uv run shockt ingest portwatch --skip-existing       # only the current year and anything not yet loaded
+uv run shockt ingest portwatch                       # all configured chokepoints, over date_range
+uv run shockt ingest portwatch --skip-existing       # skip years already loaded for the same months
 ```
 
 Climate TRACE ship voyages come from its public BigQuery dataset, one year per load, billed to your sandbox project (`GCP_PROJECT_ID`, after `gcloud auth application-default login`). Every query is dry-run first and refused above `BQ_MAX_BYTES`; the full 2022-onward load scans about 30 GB of the free 1 TB a month:
 
 ```sh
 uv run shockt ingest climatetrace-voyages --dry-run        # bytes each year would scan; no quota used
-uv run shockt ingest climatetrace-voyages                  # load every year from the config start
+uv run shockt ingest climatetrace-voyages                  # load voyages starting inside date_range
 uv run shockt ingest climatetrace-voyages --from-archive   # re-parse archived Parquet; no quota used
 ```
 
@@ -125,10 +125,16 @@ Seeds (reference CSVs) live in `dbt/seeds/` and load into `raw.seed_*`. **None i
 ```sh
 uv run shockt ref config-seeds       # HS case codes, from config/
 uv run shockt ref census-schedules   # Census country and port lists
-uv run shockt ref emission-factors   # UK and EPA freight factors
 ```
 
-Census ports get a coast region by customs district (`macros/census_regions.sql`); Climate TRACE arrival ports get one from their coordinates (`macros/coast_region.sql`). The district mapping needs a human review before relying on port-level Census results.
+Freight emission factors are loaded whole from the UK government conversion factors and the EPA GHG Emission Factors Hub (workbooks pinned under `emission_factors` in `config/sources.yaml`); `core.ref_emission_factors` derives every per-tonne-km factor from them:
+
+```sh
+uv run shockt ingest uk-ghg-factors   # every row of the UK flat file
+uv run shockt ingest epa-ghg-hub      # EPA Hub Tables 8 (transport) and 11 (GWPs)
+```
+
+Census ports and Climate TRACE arrival ports get their coast region from the same rule, `macros/coast_region.sql`, applied to each port's coordinates. `dim_port` places Census ports from BTS border crossings, OurAirports and GeoNames; ports it can't place are `unknown`, and a test bounds their share of case tonnage.
 
 ## Tests
 
@@ -136,12 +142,7 @@ Census ports get a coast region by customs district (`macros/census_regions.sql`
 uv run pytest
 ```
 
-Integration tests need `TEST_DATABASE_URL`, a superuser URL for a throwaway database; they're skipped without it. Never point it at Neon: the tests reset the schema. With Docker running:
-
-```sh
-docker compose up -d
-TEST_DATABASE_URL=postgresql://shockt:shockt@localhost:5432/shockt uv run pytest
-```
+Integration tests start a throwaway Postgres container for the session (testcontainers), using the image in `compose.yaml`, and remove it afterwards. They need Docker running and fail without it; they never touch the development database or Neon.
 
 
 

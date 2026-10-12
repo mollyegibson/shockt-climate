@@ -1,24 +1,30 @@
-# Case HS codes. Loaders request HS-10 rows whose code starts with one of these prefixes.
-# Labels and case membership are repeated in dbt/seeds/seed_hs_case_codes.csv for core.
+# Case HS codes. Loaders request rows whose code starts with one of these prefixes, so no prefix
+# may start with another. Census's description of each code is in core.dim_hs.
 
 prefixes:
+  # Servers.
   - prefix: "847150"
-    level: HS6
-    label: Processing units (servers)
-    cases: [tariffs_2025, panama_red_sea]
-  - prefix: "8504"
-    level: HS4
-    label: Electrical transformers, static converters and inductors
-    cases: [panama_red_sea]
-  - prefix: "8537"
-    level: HS4
-    label: Boards and panels for electric control or distribution (switchgear)
-    cases: [panama_red_sea]
-  - prefix: "8507"
-    level: HS4
-    label: Electric storage batteries
-    cases: [panama_red_sea]
-  - prefix: "8415"
-    level: HS4
-    label: Air conditioning machines (cooling)
-    cases: [panama_red_sea]
+    cases:
+      - tariffs_2025
+      - panama_red_sea
+  # Liquid-dielectric transformers.
+  - prefix: "850421"
+    cases:
+      - panama_red_sea
+  - prefix: "850422"
+    cases:
+      - panama_red_sea
+  - prefix: "850423"
+    cases:
+      - panama_red_sea
+  # Dry transformers above 16 kVA.
+  - prefix: "850433"
+    cases:
+      - panama_red_sea
+  - prefix: "850434"
+    cases:
+      - panama_red_sea
+  # Switchgear and switchboards above 1,000 V.
+  - prefix: "853720"
+    cases:
+      - panama_red_sea

@@ -88,7 +88,7 @@ Contexts communicate through the database layers (`raw`, `core`, `inputs`, `outp
 
 - Manage dependencies with `uv` (`uv sync`, `uv run …`, `uv add …`). Never `pip install` into the project.
 - Lint and format with `ruff`; test with `pytest`. Run `uv run ruff check . && uv run ruff format --check . && uv run pytest` before finishing a change.
-- Integration tests need `TEST_DATABASE_URL` pointing at a throwaway database. **Never point it at Neon**: the tests reset the schema.
+- Integration tests run against a throwaway Postgres testcontainer that `tests/conftest.py` starts for each session; they need Docker running. Never run them against a real database: they reset the schema.
 - Settings come from `shockt.settings.Settings`; `.env` takes priority over the shell, so other projects' variables (`DATABASE_URL`, `AWS_PROFILE`) can't leak in. Object storage uses only the `NEON_S3_*` settings, never ambient AWS configuration.
 - Migrations are Alembic with raw SQL, sequential ids (`uv run alembic revision -m "…" --rev-id 0005`) and are append-only once applied. Only the database owner runs them.
 - Loaders archive each downloaded file, then parse the archived copy into `raw`, writing the manifest row and data rows in one transaction. Row filters live in `config/sources.yaml` and are recorded in the manifest.

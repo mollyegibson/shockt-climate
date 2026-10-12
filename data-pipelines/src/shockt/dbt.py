@@ -1,8 +1,10 @@
+import json
 import os
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from dbt.cli.main import dbtRunner
 
+from shockt.config import origins_config, transforms_config
 from shockt.settings import PROJECT_ROOT, Settings
 
 DBT_DIR = PROJECT_ROOT / "dbt"
@@ -25,10 +27,19 @@ def connection_env(settings: Settings) -> dict[str, str]:
     }
 
 
+def vars_args(args: list[str]) -> list[str]:
+    """`--vars` with `config/transforms.yaml` and the regions of `config/origins.yaml`, the only
+    places dbt vars are set."""
+    if "--vars" in args:
+        raise ValueError("dbt vars come from config/; don't pass --vars")
+    dbt_vars = {**transforms_config().model_dump(), "origins": origins_config().model_dump()}
+    return ["--vars", json.dumps(dbt_vars)]
+
+
 def run(settings: Settings, args: list[str]) -> bool:
     """Run one dbt command against this project as the shockt_transform login."""
     os.environ.update(connection_env(settings))
     result = dbtRunner().invoke(
-        [*args, "--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR)]
+        [*args, *vars_args(args), "--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR)]
     )
     return result.success

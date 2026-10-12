@@ -5,7 +5,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from shockt.config import BtsTransborderConfig
+from shockt.config import BtsTransborderConfig, CountryFilter
 from shockt.sources.bts_transborder import (
     TARGET,
     BtsFileError,
@@ -18,11 +18,11 @@ from shockt.sources.bts_transborder import (
 )
 from tests.conftest import FIXTURES, MemoryArchive
 
+MEXICO = CountryFilter(codes=["2010"])
+CHAPTERS = ["84", "85"]
+
 CONFIG = BtsTransborderConfig(
     manual_dir="unused",
-    trade_type="2",
-    country_codes=["2010"],
-    hs2_chapters=["84", "85"],
     tables=["dot2", "dot3"],
 )
 FIXTURE_DIR = FIXTURES / "bts"
@@ -68,7 +68,7 @@ def test_monthly_members_ignores_year_to_date_annual_and_other_files() -> None:
 
 
 def test_parse_zip_keeps_mexico_imports_in_the_configured_chapters() -> None:
-    parsed = parse_zip(month_zip(), CONFIG)
+    parsed = parse_zip(month_zip(), CONFIG, MEXICO, CHAPTERS)
 
     rows = [dict(zip(columns(), row, strict=True)) for row in parsed.rows]
     assert parsed.rows_received == 18
@@ -82,7 +82,7 @@ def test_parse_zip_keeps_mexico_imports_in_the_configured_chapters() -> None:
 def test_parse_zip_types_values_and_maps_blank_cells_to_null() -> None:
     rail = next(
         dict(zip(columns(), row, strict=True))
-        for row in parse_zip(month_zip(), CONFIG).rows
+        for row in parse_zip(month_zip(), CONFIG, MEXICO, CHAPTERS).rows
         if row[0] == "dot2" and row[7] == 6 and row[6] == "84"
     )
 
@@ -112,7 +112,7 @@ def test_parse_zip_rejects_rows_for_another_month() -> None:
     )
 
     with pytest.raises(BtsFileError, match="not for 2024-01"):
-        parse_zip(body, CONFIG)
+        parse_zip(body, CONFIG, MEXICO, CHAPTERS)
 
 
 def test_parse_zip_rejects_a_missing_column() -> None:
@@ -122,7 +122,7 @@ def test_parse_zip_rejects_a_missing_column() -> None:
     )
 
     with pytest.raises(BtsFileError, match="SHIPWT"):
-        parse_zip(body, CONFIG)
+        parse_zip(body, CONFIG, MEXICO, CHAPTERS)
 
 
 def test_read_month_file_reports_a_truncated_download(tmp_path: Path) -> None:
@@ -153,7 +153,9 @@ def test_load_month_archives_the_zip_and_records_the_filter(
 ) -> None:
     body = month_zip()
 
-    result = load_month(conn, memory_archive, "2024-01", lambda: body, CONFIG, "Jan2024.zip")
+    result = load_month(
+        conn, memory_archive, "2024-01", lambda: body, CONFIG, MEXICO, CHAPTERS, "Jan2024.zip"
+    )
 
     assert memory_archive.objects[archive_key("2024-01")] == body
     assert result.row_count == 12
@@ -164,6 +166,7 @@ def test_load_month_archives_the_zip_and_records_the_filter(
     assert params[0]["original_filename"] == "Jan2024.zip"
     assert params[0]["rows_received"] == 18
     assert params[0]["filters"]["hs2_chapters"] == ["84", "85"]
+    assert params[0]["filters"]["countries"]["codes"] == ["2010"]
     count = conn.execute("SELECT count(*) FROM raw.bts_transborder").fetchone()
     assert count == (12,)
 
@@ -171,9 +174,11 @@ def test_load_month_archives_the_zip_and_records_the_filter(
 def test_load_month_from_the_archive_replaces_the_earlier_load(
     conn: psycopg.Connection, memory_archive: MemoryArchive
 ) -> None:
-    first = load_month(conn, memory_archive, "2024-01", month_zip, CONFIG, "Jan2024.zip")
+    first = load_month(
+        conn, memory_archive, "2024-01", month_zip, CONFIG, MEXICO, CHAPTERS, "Jan2024.zip"
+    )
 
-    second = load_month(conn, memory_archive, "2024-01", None, CONFIG)
+    second = load_month(conn, memory_archive, "2024-01", None, CONFIG, MEXICO, CHAPTERS)
 
     assert second.superseded_load_id == first.load_id
     assert conn.execute("SELECT count(*) FROM raw.bts_transborder").fetchone() == (12,)

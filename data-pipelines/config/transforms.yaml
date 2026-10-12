@@ -1,0 +1,18 @@
+# Settings the dbt models read. `shockt build` and `shockt dbt` pass this file to dbt as vars.
+
+air_ports:
+  # OurAirports types that can be air gateways, and whether an airport needs scheduled service.
+  # Requiring scheduled service drops cargo-only airports; a Census port whose only match is one
+  # stays unmatched, within `max_unmatched_share`.
+  airport_types:
+    - large_airport
+    - medium_airport
+  scheduled_service_only: true
+  # Radius around a Census port's GeoNames city within which its large airport is chosen.
+  city_radius_km: 50
+  # Largest share of case air tonnage allowed at Census ports with no matched airport.
+  max_unmatched_share: 0.01
+
+census_ports:
+  # Largest share of case vessel or air tonnage allowed at Census ports dim_port can't place.
+  max_unlocated_share: 0.01

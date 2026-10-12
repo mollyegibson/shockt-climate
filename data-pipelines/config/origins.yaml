@@ -1,0 +1,12 @@
+# Origin regions in scope, by Census Schedule C country code. The only place they are defined:
+# the Census, State/Port and BTS load filters, the Climate TRACE lanes (via the ISO3 codes in
+# seed_census_countries) and dbt's census_country_region all read this file.
+
+regions:
+  # Schedule C's 5 block: the Middle East, South Asia, Southeast Asia and East Asia.
+  asia:
+    census_code_prefixes:
+      - "5"
+  mexico:
+    census_codes:
+      - "2010"

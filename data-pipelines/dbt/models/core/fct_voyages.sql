@@ -27,4 +27,4 @@ select
 from {{ ref('stg_climatetrace_voyages') }} as v
 left join origin_regions on origin_regions.iso3 = v.start_iso3
 left join {{ ref('dim_climatetrace_ports') }} as ports on ports.end_port_id = v.end_port_id
-where v.vessel_type in ('container', 'cargo.container')
+where {{ is_container_ship('v.vessel_type') }}

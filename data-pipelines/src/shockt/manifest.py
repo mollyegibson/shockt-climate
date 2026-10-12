@@ -61,6 +61,51 @@ def succeeded_partitions(conn: psycopg.Connection, dataset: str) -> set[str]:
     return {row[0] for row in rows}
 
 
+def succeeded_params(conn: psycopg.Connection, dataset: str) -> dict[str, dict[str, object]]:
+    """The manifest `params` of each partition's current load."""
+    rows = conn.execute(
+        "SELECT partition_key, params FROM raw.load_manifest "
+        "WHERE dataset = %s AND status = 'succeeded'",
+        (dataset,),
+    ).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
+@dataclass(frozen=True)
+class CurrentLoad:
+    load_id: UUID
+    partition_key: str
+    row_count: int | None
+
+
+def current_loads(conn: psycopg.Connection, dataset: str) -> list[CurrentLoad]:
+    rows = conn.execute(
+        "SELECT load_id, partition_key, row_count FROM raw.load_manifest "
+        "WHERE dataset = %s AND status = 'succeeded' ORDER BY partition_key",
+        (dataset,),
+    ).fetchall()
+    return [CurrentLoad(*row) for row in rows]
+
+
+def retire_load(conn: psycopg.Connection, load_id: UUID, table: str) -> int:
+    """Delete a succeeded load's data rows and mark it `retired`, in one transaction. Returns the
+    number of rows deleted."""
+    _require_autocommit(conn)
+    with conn.transaction():
+        updated = conn.execute(
+            "UPDATE raw.load_manifest SET status = 'retired' "
+            "WHERE load_id = %s AND status = 'succeeded'",
+            (load_id,),
+        )
+        if updated.rowcount != 1:
+            raise ValueError(f"load {load_id} is not a current (succeeded) load")
+        deleted = conn.execute(
+            sql.SQL("DELETE FROM {} WHERE load_id = %s").format(sql.Identifier("raw", table)),
+            (load_id,),
+        )
+    return deleted.rowcount
+
+
 def archived_partitions(conn: psycopg.Connection, dataset: str) -> set[str]:
     """Partitions with a file in the archive, from any load that got as far as archiving it."""
     rows = conn.execute(

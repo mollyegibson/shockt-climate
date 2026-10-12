@@ -19,6 +19,6 @@ select
     nullif(h.unit_qy2, '-') as quantity_2_unit,
     h.load_id
 from {{ source('raw', 'census_hs') }} as h
-where h.load_id in ({{ succeeded_loads('census_hs') }})
+where h.load_id in ({{ current_census_loads('census_hs') }})
     and h.summary_lvl = 'DET'
     and h.cty_code <> '-'

@@ -8,6 +8,5 @@ input (the config file or the upstream source) and rerun the command.
 | `seed_hs_case_codes.csv` | `shockt ref config-seeds` | `config/hs_codes.yaml` |
 | `seed_census_countries.csv` | `shockt ref census-schedules` | Census Schedule C (archived), ISO3 via `pycountry` |
 | `seed_census_ports.csv` | `shockt ref census-schedules` | Census Schedule D (archived) |
-| `seed_emission_factors.csv` | `shockt ref emission-factors` | UK DESNZ and EPA factor workbooks (archived) |
 
 Regions and other rules applied to these lists live in dbt macros (`macros/`), not in the seeds. Nodes aren't a seed: `dim_nodes` builds them from loaded data (plan section 6.2).

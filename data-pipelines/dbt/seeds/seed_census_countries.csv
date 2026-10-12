@@ -99,7 +99,7 @@ census_cty_code,cty_name,iso2,iso3,source
 4793,Bosnia and Herzegovina,BA,BIH,"Census Schedule C, fetched 2026-10-12"
 4794,North Macedonia,MK,MKD,"Census Schedule C, fetched 2026-10-12"
 4801,Serbia,RS,SRB,"Census Schedule C, fetched 2026-10-12"
-4803,Kosovo,KV,XKX,"Census Schedule C, fetched 2026-10-12"
+4803,Kosovo,KV,,"Census Schedule C, fetched 2026-10-12"
 4804,Montenegro,ME,MNE,"Census Schedule C, fetched 2026-10-12"
 4810,Albania,AL,ALB,"Census Schedule C, fetched 2026-10-12"
 4840,Greece,GR,GRC,"Census Schedule C, fetched 2026-10-12"

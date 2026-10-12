@@ -1,23 +1,18 @@
 """Seeds from the Census reference lists: country codes (Schedule C) and ports (Schedule D).
 
-The seeds hold the published lists as-is, plus ISO3 codes looked up from ISO2. Regions are
+The seeds hold the published lists as-is, plus ISO3 codes looked up from ISO2 in ISO 3166, or for
+Census-specific ISO2 codes in `census_schedules.iso3_overrides` (config/sources.yaml). Regions are
 assigned in dbt (`macros/census_regions.sql`), not here.
 """
 
 import csv
 import html
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 import pycountry
-
-# Census uses its own two-letter codes where ISO 3166 has none.
-ISO3_FOR_CENSUS_ISO2 = {
-    "KV": "XKX",  # Kosovo; XKX is the common user-assigned code
-    "GZ": "PSE",  # Gaza Strip
-    "WE": "PSE",  # West Bank
-}
 
 _COUNTRY_LINE = re.compile(r"^(\d{4})\s*\|\s*(.+?)\s*\|\s*([A-Z]{2})?\s*$")
 
@@ -41,14 +36,14 @@ class Port:
     district_code: str
 
 
-def parse_schedule_c(text: str) -> list[Country]:
+def parse_schedule_c(text: str, iso3_overrides: Mapping[str, str]) -> list[Country]:
     countries = []
     for line in text.splitlines():
         match = _COUNTRY_LINE.match(line)
         if match is None:
             continue
         code, name, iso2 = match.groups()
-        countries.append(Country(code, name, iso2, _iso3(iso2)))
+        countries.append(Country(code, name, iso2, _iso3(iso2, iso3_overrides)))
     if len(countries) < 200:
         raise ScheduleError(f"Schedule C parsed to only {len(countries)} countries")
     return countries
@@ -84,10 +79,10 @@ def write_ports(ports: list[Port], path: Path, source: str) -> None:
             writer.writerow([p.port_code, p.port_name, p.district_code, source])
 
 
-def _iso3(iso2: str | None) -> str | None:
+def _iso3(iso2: str | None, overrides: Mapping[str, str]) -> str | None:
     if iso2 is None:
         return None
-    if iso2 in ISO3_FOR_CENSUS_ISO2:
-        return ISO3_FOR_CENSUS_ISO2[iso2]
+    if iso2 in overrides:
+        return overrides[iso2]
     country = pycountry.countries.get(alpha_2=iso2)
     return country.alpha_3 if country is not None else None

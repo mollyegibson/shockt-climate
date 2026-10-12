@@ -1,6 +1,8 @@
 """Climate TRACE ship voyages, queried from the public BigQuery dataset.
 
 One partition is one calendar year of voyage start dates, matching the table's partitioning.
+The whole year is queried and archived, since a year costs the same to scan whole or in part;
+only voyages starting in the requested months are loaded.
 Every query runs as a free dry run first and is refused if it would scan more than the
 configured byte cap; the real query runs with the same cap as `maximum_bytes_billed`. Each
 year's result is archived as Parquet, with the query, release and bytes scanned in the file
@@ -23,8 +25,11 @@ from shockt.archive import Archive, object_key
 from shockt.config import ClimateTraceConfig
 from shockt.loading import ParsedSource, Target, load_partition
 from shockt.manifest import LoadResult
+from shockt.months import MonthRange
 
 DATASET = "climatetrace_voyages"
+DESTINATION_ISO3 = "USA"
+"""The product covers US imports, so every voyage loaded ends at a US port."""
 METADATA_KEY = b"shockt"
 
 SOURCE_COLUMNS = (
@@ -98,8 +103,8 @@ class YearQuery:
     """(name, BigQuery type, value); array parameters use type `ARRAY<STRING>`."""
 
 
-def year_query(config: ClimateTraceConfig, year: int) -> YearQuery:
-    """Voyages starting in `year` from a configured origin country to a destination country."""
+def year_query(config: ClimateTraceConfig, origins: Sequence[str], year: int) -> YearQuery:
+    """Voyages starting in `year` from an origin country (ISO3) to the United States."""
     columns = ",\n  ".join(
         (*SOURCE_COLUMNS, *(f"{expression} AS {name}" for name, expression in COMPUTED_COLUMNS))
     )
@@ -107,29 +112,35 @@ def year_query(config: ClimateTraceConfig, year: int) -> YearQuery:
         f"SELECT\n  {columns}\nFROM `{config.table}`\n"
         "WHERE start_date >= @start AND start_date < @end\n"
         "  AND other4 IN UNNEST(@origins)\n"
-        "  AND other5 IN UNNEST(@destinations)"
+        "  AND other5 = @destination"
     )
     return YearQuery(
         sql=sql,
         params=(
             ("start", "TIMESTAMP", datetime(year, 1, 1, tzinfo=UTC)),
             ("end", "TIMESTAMP", datetime(year + 1, 1, 1, tzinfo=UTC)),
-            ("origins", "ARRAY<STRING>", list(config.origin_iso3)),
-            ("destinations", "ARRAY<STRING>", list(config.destination_iso3)),
+            ("origins", "ARRAY<STRING>", list(origins)),
+            ("destination", "STRING", DESTINATION_ISO3),
         ),
     )
 
 
-def estimate_bytes(runner: BigQueryRunner, config: ClimateTraceConfig, year: int) -> int:
-    query = year_query(config, year)
+def estimate_bytes(
+    runner: BigQueryRunner, config: ClimateTraceConfig, origins: Sequence[str], year: int
+) -> int:
+    query = year_query(config, origins, year)
     return runner.dry_run(query.sql, query.params)
 
 
 def fetch_year(
-    runner: BigQueryRunner, config: ClimateTraceConfig, year: int, max_bytes: int
+    runner: BigQueryRunner,
+    config: ClimateTraceConfig,
+    origins: Sequence[str],
+    year: int,
+    max_bytes: int,
 ) -> bytes:
     """Run one year's query under the byte cap and return the result as Parquet."""
-    query = year_query(config, year)
+    query = year_query(config, origins, year)
     estimate = runner.dry_run(query.sql, query.params)
     if estimate > max_bytes:
         raise ClimateTraceError(
@@ -156,8 +167,9 @@ def fetch_year(
     return buffer.getvalue()
 
 
-def parse_year(body: bytes, year: int) -> ParsedSource:
-    """Rows for `raw.climatetrace_voyages` from one archived year of Parquet."""
+def parse_year(body: bytes, year: int, months: MonthRange) -> ParsedSource:
+    """Rows for `raw.climatetrace_voyages` from one archived year of Parquet, for voyages
+    starting in `months`."""
     table = pq.read_table(io.BytesIO(body))
     raw_metadata = (table.schema.metadata or {}).get(METADATA_KEY)
     if raw_metadata is None:
@@ -181,7 +193,7 @@ def parse_year(body: bytes, year: int) -> ParsedSource:
                 f"voyage {record['asset_identifier']} starts {start}, not in {year}"
             )
         key = (record["asset_identifier"], start)
-        if key in seen:
+        if key in seen or not months.contains(start.date()):
             continue
         seen.add(key)
         rows.append(tuple(record[c] for c in RESULT_COLUMNS))
@@ -201,10 +213,15 @@ def load_year(
     conn: psycopg.Connection,
     archive: Archive,
     config: ClimateTraceConfig,
+    origins: Sequence[str],
     year: int,
+    months: MonthRange,
     fetch: Callable[[], bytes] | None,
 ) -> LoadResult:
-    """Archive one year's result (or reuse the archived copy when `fetch` is None); load it."""
+    """Archive one year's result (or reuse the archived copy when `fetch` is None) and load the
+    voyages starting in `months`, which must fall in `year`."""
+    if months.years() != range(year, year + 1):
+        raise ClimateTraceError(f"months {months.first}..{months.last} are not all in {year}")
     return load_partition(
         conn,
         archive,
@@ -214,11 +231,12 @@ def load_year(
         content_type="application/vnd.apache.parquet",
         params={
             "year": year,
-            "origin_iso3": config.origin_iso3,
-            "destination_iso3": config.destination_iso3,
+            **months.as_params(),
+            "origin_iso3": list(origins),
+            "destination_iso3": DESTINATION_ISO3,
         },
         obtain=fetch,
-        parse=lambda body: parse_year(body, year),
+        parse=lambda body: parse_year(body, year, months),
     )
 
 

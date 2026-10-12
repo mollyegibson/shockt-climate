@@ -14,7 +14,9 @@ from tests.conftest import MemoryArchive
 CONCORDANCE = ImportConcordanceConfig(
     url_template="https://example.invalid/concordance/impconcord{yy}.xlsx"
 )
-DENUE = DenueConfig(url="https://example.invalid/denue_00_31-33_csv.zip", industry_digits=5)
+DENUE = DenueConfig(
+    url="https://example.invalid/denue_00_31-33_csv.zip", industry_digits=5, cases=["tariffs_2025"]
+)
 
 
 def concordance_workbook(*rows: tuple[str | None, ...], core_xml: bytes | None = None) -> bytes:

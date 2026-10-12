@@ -29,7 +29,7 @@ from countries
 join shared_months using (month)
 left join ports using (month, hs6, census_cty_code, mode)
 where countries.census_cty_code in (
-        select census_cty_code from {{ ref('dim_country') }} where region in ('asia', 'mexico')
+        select census_cty_code from {{ ref('dim_country') }} where region <> 'other'
     )
     and abs(countries.country_weight_t - coalesce(ports.port_weight_t, 0))
         > greatest(1, 0.01 * countries.country_weight_t)

@@ -4,9 +4,10 @@
                    Puerto Rico and the US Virgin Islands (17–19°N, 64–68°W)
     west           Pacific coast: 24–50°N, west of 114°W
     gulf           Gulf of Mexico, Texas to Florida's west coast: 24–31°N, 81.8–98°W
-    inland         Great Lakes and inland waterways: north of 41°N and west of 75.5°W, or anything left over
+    inland         Great Lakes: north of 41°N and west of 75.5°W
     east           Atlantic coast: 24–48°N, east of 81.8°W
-  Missing coordinates give `unknown`.
+    inland         the rest of the contiguous interior: 24–50°N, 66–114°W
+  Missing coordinates give `unknown`; coordinates no rule matches give `other`.
 -#}
 {% macro coast_region(lon, lat) %}
     case
@@ -18,6 +19,7 @@
         when {{ lat }} between 24 and 31 and {{ lon }} between -98 and -81.8 then 'gulf'
         when {{ lat }} >= 41 and {{ lon }} < -75.5 then 'inland'
         when {{ lat }} between 24 and 48 and {{ lon }} > -81.8 then 'east'
-        else 'inland'
+        when {{ lat }} between 24 and 50 and {{ lon }} between -114 and -66 then 'inland'
+        else 'other'
     end
 {% endmacro %}

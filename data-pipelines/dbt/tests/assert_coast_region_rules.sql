@@ -25,6 +25,13 @@ with known (port, lon, lat, expected) as (
         ('Dutch Harbor, AK', -166.54, 53.89, 'noncontiguous'),
         ('Anchorage, AK', -149.89, 61.22, 'noncontiguous'),
         ('San Juan, PR', -66.10, 18.46, 'noncontiguous'),
+        ('Atlanta, GA', -84.39, 33.75, 'inland'),
+        ('Dallas, TX', -96.80, 32.78, 'inland'),
+        ('Laredo, TX', -99.51, 27.51, 'inland'),
+        ('El Paso, TX', -106.49, 31.76, 'inland'),
+        ('Phoenix, AZ', -112.07, 33.45, 'inland'),
+        ('Memphis, TN', -90.05, 35.15, 'inland'),
+        ('Eastern Pacific, south of 24°N', -120.0, 10.0, 'other'),
         ('No coordinates', null::double precision, null::double precision, 'unknown')
 )
 

@@ -3,6 +3,7 @@ import json
 import psycopg
 import pytest
 
+from shockt import manifest as load_manifest
 from shockt.config import CensusRowFilter
 from shockt.sources.census_api import DATASETS, CensusResponseError, load_month
 from tests.conftest import MemoryArchive, census_fixture
@@ -215,3 +216,29 @@ def test_loads_refuse_a_connection_without_autocommit(
             lambda: bundle("porths"),
             KEEP_ALL,
         )
+
+
+def test_retire_load_deletes_its_rows_and_marks_it_retired(
+    conn: psycopg.Connection, memory_archive: MemoryArchive
+) -> None:
+    spec = DATASETS["hs"]
+    result = load_month(
+        conn,
+        memory_archive,
+        spec,
+        "2024-12",
+        "8504",
+        lambda: bundle("hs"),
+        CensusRowFilter(drop_country_groups=False, drop_all_zero=False),
+    )
+
+    deleted = load_manifest.retire_load(conn, result.load_id, spec.table)
+
+    assert deleted == result.row_count
+    status = conn.execute(
+        "SELECT status FROM raw.load_manifest WHERE load_id = %s", (result.load_id,)
+    ).fetchone()
+    assert status == ("retired",)
+    assert conn.execute("SELECT count(*) FROM raw.census_hs").fetchone() == (0,)
+    with pytest.raises(ValueError, match="not a current"):
+        load_manifest.retire_load(conn, result.load_id, spec.table)

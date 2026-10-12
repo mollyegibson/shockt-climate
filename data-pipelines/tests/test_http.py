@@ -7,17 +7,16 @@ from tenacity import wait_none
 
 from shockt import http
 from shockt.archive import NeonArchive
-from shockt.config import CensusApiConfig, CensusRowFilter
+from shockt.config import CensusApiConfig, CensusFilterConfig
 from shockt.settings import Settings
 from shockt.sources.census_api import DATASETS, CensusResponseError, fetch_bundle
 from tests.conftest import census_fixture
 
 BASE = "https://api.census.gov/data/timeseries/intltrade/imports"
 KEY = "0123456789abcdef0123456789abcdef01234567"
-KEEP_ALL = CensusRowFilter(drop_country_groups=False, drop_all_zero=False)
+KEEP_ALL = CensusFilterConfig(drop_country_groups=False, drop_all_zero=False)
 CONFIG = CensusApiConfig(
     base_url=BASE,
-    comm_lvl={"hs": "HS10", "porths": "HS6", "statehs": "HS6"},
     timeout_seconds=10,
     filters={"hs": KEEP_ALL, "porths": KEEP_ALL, "statehs": KEEP_ALL},
 )

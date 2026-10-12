@@ -1,6 +1,8 @@
-hs_prefix,level,label,cases,source
-847150,HS6,Processing units (servers),tariffs_2025|panama_red_sea,config/hs_codes.yaml
-8504,HS4,"Electrical transformers, static converters and inductors",panama_red_sea,config/hs_codes.yaml
-8537,HS4,Boards and panels for electric control or distribution (switchgear),panama_red_sea,config/hs_codes.yaml
-8507,HS4,Electric storage batteries,panama_red_sea,config/hs_codes.yaml
-8415,HS4,Air conditioning machines (cooling),panama_red_sea,config/hs_codes.yaml
+hs_prefix,cases,source
+847150,tariffs_2025|panama_red_sea,config/hs_codes.yaml
+850421,panama_red_sea,config/hs_codes.yaml
+850422,panama_red_sea,config/hs_codes.yaml
+850423,panama_red_sea,config/hs_codes.yaml
+850433,panama_red_sea,config/hs_codes.yaml
+850434,panama_red_sea,config/hs_codes.yaml
+853720,panama_red_sea,config/hs_codes.yaml

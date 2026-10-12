@@ -12,22 +12,32 @@ models:
       - name: census_cty_code
         data_tests: [unique, not_null]
       - name: region
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ["asia", "mexico", "other"]
+        description: >
+          A region of config/origins.yaml, or `other`; `assert_regions_are_configured_origins` checks it.
 
   - name: dim_port
-    description: Census Schedule D ports with the coast region of their customs district.
+    description: >
+      Census Schedule D ports, each placed at a point (a US–Mexico crossing, a named airport, its
+      GeoNames city or an airport in its municipality) and given a coast region by `coast_region`,
+      the same rule as the Climate TRACE ports. `assert_census_port_coast_regions` pins known ports;
+      `assert_census_ports_located` bounds the tonnage at ports with no point.
     columns:
       - name: port_code
         data_tests: [unique, not_null]
+      - name: is_border_crossing
+        description: A US–Mexico crossing in BTS Border Crossing Entry Data.
+        data_tests: [not_null]
+      - name: location_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["border_crossing", "airport_name", "geonames_city", "airport_municipality", "unmatched"]
       - name: coast_region
         data_tests:
           - not_null
           - accepted_values:
               arguments:
-                values: ["east", "west", "gulf", "border_north", "border_south", "inland", "noncontiguous", "other"]
+                values: ["west", "gulf", "east", "inland", "noncontiguous", "other", "unknown"]
 
   - name: dim_hs
     description: HS-10 codes seen in the country-level data, with the cases they belong to.
@@ -99,23 +109,41 @@ models:
 
   - name: ref_emission_factors
     description: >
-      Freight emission factors, kg CO2e per tonne-km. Ocean and international air from the UK
-      government conversion factors; North American truck and rail from the EPA GHG Emission Factors
-      Hub, made well-to-wheel with the UK's well-to-tank share for the same mode.
+      Every freight emission factor per tonne-km in the UK government conversion factors and the
+      EPA GHG Emission Factors Hub, in kg CO2e: tank-to-wheel, well-to-tank and well-to-wheel. UK
+      factors are paired with their own well-to-tank rows; EPA factors (combustion only) take the
+      UK well-to-tank ratio of the fuel `epa_vehicle_fuel` assigns. Which factor a leg uses is the
+      engine's rule (plan section 6.1).
     data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["source", "variant"]
       - dbt_utils.expression_is_true:
           arguments:
             expression: "abs(wtw_kg_co2e_per_tkm - ttw_kg_co2e_per_tkm - wtt_kg_co2e_per_tkm) < 0.000002"
+          config:
+            where: "wtw_kg_co2e_per_tkm is not null"
     columns:
-      - name: factor_id
-        data_tests: [unique, not_null]
+      - name: source
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["uk_desnz", "epa_hub"]
       - name: mode
         data_tests:
           - accepted_values:
               arguments:
-                values: ["ocean", "air", "truck", "rail"]
-      - name: wtw_kg_co2e_per_tkm
+                values: ["ocean", "air", "truck", "rail", "other"]
+      - name: ttw_kg_co2e_per_tkm
         data_tests: [not_null]
+      - name: wtw_kg_co2e_per_tkm
+        description: >
+          Null only for EPA vehicle types with no fuel assigned. Every UK factor has one: a UK
+          freight row without exactly one well-to-tank pair fails this test or the uniqueness test.
+        data_tests:
+          - not_null:
+              config:
+                where: "source = 'uk_desnz' or fuel is not null"
 
   - name: fct_chokepoint_transits_daily
     description: >
@@ -127,11 +155,8 @@ models:
             combination_of_columns: ["date", "chokepoint_id"]
     columns:
       - name: chokepoint_id
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ["chokepoint1", "chokepoint2", "chokepoint4", "chokepoint7"]
+        description: A PortWatch ID from config/sources.yaml; the loader rejects rows for any other.
+        data_tests: [not_null]
       - name: n_total
         data_tests:
           - not_null
@@ -176,12 +201,10 @@ models:
           - not_null
           - accepted_values:
               arguments:
-                values: ["west", "gulf", "east", "inland", "noncontiguous", "unknown"]
+                values: ["west", "gulf", "east", "inland", "noncontiguous", "other", "unknown"]
       - name: origin_region
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ["asia", "mexico"]
+        description: A region of config/origins.yaml; `assert_regions_are_configured_origins` checks it.
+        data_tests: [not_null]
 
   - name: agg_voyage_lanes_monthly
     description: >
@@ -204,14 +227,14 @@ models:
         data_tests:
           - accepted_values:
               arguments:
-                values: ["west", "gulf", "east", "inland", "noncontiguous", "unknown"]
+                values: ["west", "gulf", "east", "inland", "noncontiguous", "other", "unknown"]
 
   - name: dim_census_air_ports
     description: >
       Census ports with air imports of the case HS codes, each placed at an OurAirports airport by a
       scripted match: by airport name when the port name names an airport, else the nearest large
-      airport within `air_port_city_radius_km` of the port's GeoNames city, else the nearest
-      airport; a city GeoNames lacks is matched by airport municipality. Unmatched ports have null coordinates and are left out of the nodes;
+      airport within `air_ports.city_radius_km` (config/transforms.yaml) of the port's GeoNames
+      city, else the nearest airport; a city GeoNames lacks is matched by airport municipality. Unmatched ports have null coordinates and are left out of the nodes;
       `assert_air_ports_unmatched_share_within_limit` bounds their share of air tonnage.
     columns:
       - name: port_code

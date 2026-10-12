@@ -1,5 +1,5 @@
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date
 from enum import StrEnum
 from functools import partial
@@ -11,11 +11,13 @@ import typer
 
 from shockt import dbt, http, manifest
 from shockt.archive import NeonArchive, object_key
-from shockt.config import hs_codes_config, sources_config
+from shockt.config import hs_codes_config, origins_config, sources_config
 from shockt.db import connect
 from shockt.http import make_client
 from shockt.loading import ParsedSource, Target
-from shockt.reference import census_schedules, config_seeds, emission_factors
+from shockt.months import MonthRange
+from shockt.origins import origin_iso3
+from shockt.reference import census_schedules, config_seeds
 from shockt.settings import PROJECT_ROOT, get_settings
 from shockt.sources import (
     bts_transborder,
@@ -23,6 +25,7 @@ from shockt.sources import (
     census_concordance,
     climatetrace,
     denue,
+    ghg_factors,
     portwatch,
     reference,
 )
@@ -109,7 +112,7 @@ def ingest_census(
                         month,
                         prefix,
                         None if from_archive else fetch,
-                        config.census_api.filters[spec.endpoint],
+                        config.census_api.filters[spec.endpoint].row_filter(origins_config()),
                     )
                     note = " (replaced earlier load)" if result.superseded_load_id else ""
                     typer.echo(
@@ -168,6 +171,8 @@ def ingest_bts_transborder(
                     month,
                     month_file.path.read_bytes if month_file else None,
                     config,
+                    origins_config().country_filter(),
+                    hs_codes_config().hs2_chapters(),
                     original_filename=month_file.path.name if month_file else None,
                 )
             except Exception as exc:
@@ -186,19 +191,48 @@ def ingest_bts_transborder(
         raise typer.Exit(1)
 
 
+FROM_MONTH_OPTION = typer.Option("--from", help="First month, YYYY-MM. Default: config start.")
+TO_MONTH_OPTION = typer.Option(
+    "--to", help="Last month, YYYY-MM. Default: config end, else the current month."
+)
+
+
+def _month_range(start: str | None, end: str | None) -> MonthRange:
+    """`--from`/`--to`, defaulting to `date_range` in config/sources.yaml."""
+    config = sources_config().date_range
+    try:
+        return MonthRange.resolve(
+            start or config.start_month, end or config.end_month, date.today()
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+def _already_loaded(
+    params: Mapping[str, object] | None, months: MonthRange, **expected: object
+) -> bool:
+    """Whether a year partition's current load covers exactly `months` with the `expected` params
+    (e.g. the same origin countries), in a year that's over."""
+    if params is None or int(months.first[:4]) >= date.today().year:
+        return False
+    wanted = {**months.as_params(), **expected}
+    return all(params.get(name) == value for name, value in wanted.items())
+
+
 @ingest_app.command("portwatch")
 def ingest_portwatch(
-    start: Annotated[
-        int | None, typer.Option("--from", help="First year. Default: config start.")
-    ] = None,
-    end: Annotated[int | None, typer.Option("--to", help="Last year. Default: this year.")] = None,
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
     chokepoint: Annotated[
         list[str] | None,
         typer.Option(help="PortWatch portid, e.g. chokepoint2; repeat for several. Default: all."),
     ] = None,
     skip_existing: Annotated[
         bool,
-        typer.Option(help="Skip loaded chokepoint-years. The current year is always reloaded."),
+        typer.Option(
+            help="Skip chokepoint-years already loaded for the same months. "
+            "The current year is always reloaded."
+        ),
     ] = False,
     from_archive: Annotated[
         bool, typer.Option(help="Re-parse archived responses instead of calling PortWatch.")
@@ -212,46 +246,49 @@ def ingest_portwatch(
     if unknown:
         raise typer.BadParameter(f"not in config: {', '.join(unknown)}", param_hint="--chokepoint")
     portids = chokepoint or list(portwatch_config.chokepoints)
-    this_year = date.today().year
-    years = range(start or int(config.date_range.start_month[:4]), (end or this_year) + 1)
+    months = _month_range(start, end)
     archive = NeonArchive(settings)
 
     with make_client(timeout_seconds=120) as client, connect(settings) as conn:
-        data_edited = None if from_archive else portwatch.data_last_edited(client, portwatch_config)
-        done = manifest.succeeded_partitions(conn, portwatch.DATASET) if skip_existing else set()
+        layer = None if from_archive else portwatch.layer_info(client, portwatch_config)
+        done = manifest.succeeded_params(conn, portwatch.DATASET) if skip_existing else {}
         for portid in portids:
-            for year in years:
+            for year in months.years():
                 key = portwatch.partition_key(portid, year)
-                if key in done and year != this_year:
+                if _already_loaded(done.get(key), months.in_year(year)):
                     typer.echo(f"{portwatch.DATASET} {key}: skipped (already loaded)")
                     continue
                 started = time.monotonic()
                 fetch = (
                     None
-                    if data_edited is None
+                    if layer is None
                     else partial(
-                        portwatch.fetch_bundle, client, portwatch_config, portid, year, data_edited
+                        portwatch.fetch_bundle, client, portwatch_config, portid, year, layer
                     )
                 )
-                result = portwatch.load_year(conn, archive, portid, year, fetch)
+                result = portwatch.load_year(
+                    conn, archive, portid, year, months.in_year(year), fetch
+                )
                 note = " (replaced earlier load)" if result.superseded_load_id else ""
                 typer.echo(
-                    f"{portwatch.DATASET} {key} ({portwatch_config.chokepoints[portid]}): "
+                    f"{portwatch.DATASET} {key}: "
                     f"{result.row_count:,} days in {time.monotonic() - started:.1f}s{note}"
                 )
 
 
 @ingest_app.command("climatetrace-voyages")
 def ingest_climatetrace_voyages(
-    start: Annotated[
-        int | None, typer.Option("--from", help="First year. Default: config start.")
-    ] = None,
-    end: Annotated[int | None, typer.Option("--to", help="Last year. Default: this year.")] = None,
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
     dry_run: Annotated[
         bool, typer.Option(help="Print the bytes each year would scan; load nothing.")
     ] = False,
     skip_existing: Annotated[
-        bool, typer.Option(help="Skip loaded years. The current year is always reloaded.")
+        bool,
+        typer.Option(
+            help="Skip years already loaded for the same months. The current year is always "
+            "reloaded."
+        ),
     ] = False,
     from_archive: Annotated[
         bool, typer.Option(help="Re-parse archived Parquet instead of querying BigQuery.")
@@ -260,8 +297,8 @@ def ingest_climatetrace_voyages(
     """Load Climate TRACE ship voyages on the configured lanes from BigQuery, one year at a time."""
     settings = get_settings()
     config = sources_config()
-    this_year = date.today().year
-    years = range(start or int(config.date_range.start_month[:4]), (end or this_year) + 1)
+    months = _month_range(start, end)
+    origins = origin_iso3(origins_config())
     runner: climatetrace.BigQueryRunner | None = None
     if not from_archive:
         if settings.gcp_project_id is None:
@@ -272,8 +309,8 @@ def ingest_climatetrace_voyages(
         if runner is None:
             raise typer.BadParameter("--dry-run queries BigQuery; drop --from-archive")
         total = 0
-        for year in years:
-            estimate = climatetrace.estimate_bytes(runner, config.climatetrace, year)
+        for year in months.years():
+            estimate = climatetrace.estimate_bytes(runner, config.climatetrace, origins, year)
             total += estimate
             typer.echo(f"{climatetrace.DATASET} {year}: would scan {estimate / 1e9:.1f} GB")
         typer.echo(
@@ -284,9 +321,9 @@ def ingest_climatetrace_voyages(
 
     archive = NeonArchive(settings)
     with connect(settings) as conn:
-        done = manifest.succeeded_partitions(conn, climatetrace.DATASET) if skip_existing else set()
-        for year in years:
-            if str(year) in done and year != this_year:
+        done = manifest.succeeded_params(conn, climatetrace.DATASET) if skip_existing else {}
+        for year in months.years():
+            if _already_loaded(done.get(str(year)), months.in_year(year), origin_iso3=origins):
                 typer.echo(f"{climatetrace.DATASET} {year}: skipped (already loaded)")
                 continue
             started = time.monotonic()
@@ -297,11 +334,14 @@ def ingest_climatetrace_voyages(
                     climatetrace.fetch_year,
                     runner,
                     config.climatetrace,
+                    origins,
                     year,
                     settings.bq_max_bytes,
                 )
             )
-            result = climatetrace.load_year(conn, archive, config.climatetrace, year, fetch)
+            result = climatetrace.load_year(
+                conn, archive, config.climatetrace, origins, year, months.in_year(year), fetch
+            )
             note = " (replaced earlier load)" if result.superseded_load_id else ""
             typer.echo(
                 f"{climatetrace.DATASET} {year}: {result.row_count:,} voyages "
@@ -422,11 +462,55 @@ def ingest_census_concordance(
             )
 
 
+@ingest_app.command("uk-ghg-factors")
+def ingest_uk_ghg_factors(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
+    """Load every row of the UK government GHG conversion factors flat file."""
+    source = sources_config().emission_factors.uk
+    _load_reference(
+        ghg_factors.UK_FACTORS,
+        source.url,
+        source.url.rsplit("/", 1)[-1],
+        ghg_factors.XLSX,
+        {"url": source.url, "version": source.version},
+        ghg_factors.parse_uk_workbook,
+        from_archive,
+    )
+
+
+@ingest_app.command("epa-ghg-hub")
+def ingest_epa_ghg_hub(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
+    """Load Tables 8 (transportation) and 11 (GWPs) of the EPA GHG Emission Factors Hub."""
+    source = sources_config().emission_factors.epa
+    downloaded: dict[str, bytes] = {}
+
+    def download_once(client: httpx.Client) -> bytes:
+        if "body" not in downloaded:
+            downloaded["body"] = http.get(client, source.url, {}).content
+        return downloaded["body"]
+
+    for target, parse in (
+        (ghg_factors.EPA_TRANSPORT, ghg_factors.parse_epa_transport),
+        (ghg_factors.EPA_GWP, ghg_factors.parse_epa_gwp),
+    ):
+        _load_reference(
+            target,
+            source.url,
+            source.url.rsplit("/", 1)[-1],
+            ghg_factors.XLSX,
+            {"url": source.url, "version": source.version},
+            parse,
+            from_archive,
+            fetch=download_once,
+        )
+
+
 @ingest_app.command("denue")
 def ingest_denue(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
     """Load DENUE establishments in the industries the case HS codes map to."""
     config = sources_config().reference_sources.denue
-    prefixes = [p.prefix for p in hs_codes_config().prefixes]
+    prefixes = hs_codes_config().for_cases(config.cases)
+    if not prefixes:
+        raise typer.BadParameter(f"no HS prefix in config/hs_codes.yaml belongs to {config.cases}")
     settings = get_settings()
     archive = NeonArchive(settings)
     started = time.monotonic()
@@ -473,7 +557,9 @@ def ref_census_schedules() -> None:
             typer.echo(f"{name}: {len(body):,} bytes archived at {key}")
             bodies[name] = body
     seeds = dbt.DBT_DIR / "seeds"
-    countries = census_schedules.parse_schedule_c(bodies["schedule_c"].decode("utf-8", "replace"))
+    countries = census_schedules.parse_schedule_c(
+        bodies["schedule_c"].decode("utf-8", "replace"), config.iso3_overrides
+    )
     census_schedules.write_countries(
         countries, seeds / "seed_census_countries.csv", f"Census Schedule C, fetched {fetched}"
     )
@@ -486,35 +572,6 @@ def ref_census_schedules() -> None:
         f"seed_census_countries.csv: {len(countries)} countries; ISO2 without ISO3: {missing_iso3}"
     )
     typer.echo(f"seed_census_ports.csv: {len(ports)} ports")
-
-
-@ref_app.command("emission-factors")
-def ref_emission_factors() -> None:
-    """Download and archive the UK and EPA factor workbooks; write seed_emission_factors.csv."""
-    settings = get_settings()
-    sources = sources_config().emission_factors
-    archive = NeonArchive(settings)
-    workbooks: dict[str, bytes] = {}
-    with make_client(timeout_seconds=120) as client:
-        for name, source in (("uk_desnz", sources.uk), ("epa_hub", sources.epa)):
-            body = http.get(client, source.url, {}).content
-            key = object_key(
-                f"reference_{name}", source.version.split()[0], source.url.rsplit("/", 1)[-1]
-            )
-            digest = archive.put(key, body, "application/vnd.ms-excel")
-            typer.echo(f"{name}: {len(body):,} bytes archived at {key} (sha256 {digest[:12]})")
-            workbooks[name] = body
-    rows = emission_factors.build_seed_rows(
-        emission_factors.read_uk_rows(workbooks["uk_desnz"]),
-        emission_factors.read_epa_factors(workbooks["epa_hub"]),
-        uk_version=sources.uk.version,
-        epa_version=sources.epa.version,
-    )
-    path = dbt.DBT_DIR / "seeds" / "seed_emission_factors.csv"
-    emission_factors.write_seed(rows, path)
-    typer.echo(f"Wrote {len(rows)} factors to {path.relative_to(PROJECT_ROOT)}")
-    for row in rows:
-        typer.echo(f"  {row.factor_id:32} {row.ttw + row.wtt:.4f} kg CO2e/tkm well-to-wheel")
 
 
 @app.command()
@@ -532,6 +589,37 @@ def dbt_command(ctx: typer.Context) -> None:
     """Run any dbt command, e.g. `shockt dbt test -s fct_imports_monthly`."""
     if not dbt.run(get_settings(), list(ctx.args)):
         raise typer.Exit(1)
+
+
+@loads_app.command("retire")
+def loads_retire(
+    apply: Annotated[bool, typer.Option(help="Retire them; without it, only list them.")] = False,
+) -> None:
+    """Retire Census loads whose HS prefix is no longer in config/hs_codes.yaml: delete their raw
+    rows and mark them retired. Their archived files stay, so they can be reloaded."""
+    prefixes = {p.prefix for p in hs_codes_config().prefixes}
+    with connect(get_settings()) as conn:
+        for spec in census_api.DATASETS.values():
+            stale = [
+                load
+                for load in manifest.current_loads(conn, spec.manifest_dataset)
+                if load.partition_key.partition(":")[2] not in prefixes
+            ]
+            rows = sum(load.row_count or 0 for load in stale)
+            by_prefix = sorted({load.partition_key.partition(":")[2] for load in stale})
+            if not apply:
+                typer.echo(
+                    f"{spec.manifest_dataset}: {len(stale)} loads ({rows:,} rows) would be "
+                    f"retired; prefixes {by_prefix}"
+                )
+                continue
+            deleted = sum(manifest.retire_load(conn, load.load_id, spec.table) for load in stale)
+            typer.echo(
+                f"{spec.manifest_dataset}: retired {len(stale)} loads, deleted {deleted:,} rows; "
+                f"prefixes {by_prefix}"
+            )
+    if not apply:
+        typer.echo("Nothing changed; rerun with --apply to retire them.")
 
 
 @loads_app.command("list")

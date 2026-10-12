@@ -1,12 +1,13 @@
 import json
-import os
 from collections.abc import Iterator
 from pathlib import Path
 
 import psycopg
 import pytest
+import yaml
 from alembic import command
 from alembic.config import Config
+from testcontainers.community.postgres import PostgresContainer
 
 from shockt.archive import sha256_hex
 
@@ -35,18 +36,24 @@ def memory_archive() -> MemoryArchive:
     return MemoryArchive()
 
 
+def postgres_image() -> str:
+    """The Postgres image `compose.yaml` runs for development, so tests use the same version."""
+    compose = yaml.safe_load((PROJECT_ROOT / "compose.yaml").read_text())
+    return str(compose["services"]["postgres"]["image"])
+
+
 @pytest.fixture(scope="session")
-def migrated_database_url() -> str:
-    """A database with all migrations applied. Integration tests need TEST_DATABASE_URL, a
-    superuser URL for a throwaway database; they're skipped without it."""
-    url = os.environ.get("TEST_DATABASE_URL")
-    if not url:
-        pytest.skip("TEST_DATABASE_URL is not set")
-    config = Config(str(PROJECT_ROOT / "alembic.ini"))
-    config.attributes["sqlalchemy_url"] = url.replace("postgresql://", "postgresql+psycopg://", 1)
-    command.downgrade(config, "base")
-    command.upgrade(config, "head")
-    return url
+def migrated_database_url() -> Iterator[str]:
+    """A throwaway Postgres container for the test session, with all migrations applied.
+    Integration tests need Docker running; they fail without it rather than skip."""
+    with PostgresContainer(postgres_image(), driver=None) as postgres:
+        url = postgres.get_connection_url()
+        config = Config(str(PROJECT_ROOT / "alembic.ini"))
+        config.attributes["sqlalchemy_url"] = url.replace(
+            "postgresql://", "postgresql+psycopg://", 1
+        )
+        command.upgrade(config, "head")
+        yield url
 
 
 @pytest.fixture

@@ -14,6 +14,6 @@ select
     s.cnt_wgt_mo as containerized_weight_kg,
     s.load_id
 from {{ source('raw', 'census_statehs') }} as s
-where s.load_id in ({{ succeeded_loads('census_statehs') }})
+where s.load_id in ({{ current_census_loads('census_statehs') }})
     and s.summary_lvl = 'DET'
     and s.cty_code <> '-'

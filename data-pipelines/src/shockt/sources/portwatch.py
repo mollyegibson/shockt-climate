@@ -1,11 +1,12 @@
 """IMF PortWatch daily chokepoint transits, from the public ArcGIS FeatureServer.
 
 One partition is one chokepoint for one calendar year. Its pages are archived as one JSON
-bundle, then parsed from the archived copy.
+bundle, then parsed from the archived copy, keeping only the days inside the requested months.
 """
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 
 import httpx
@@ -16,6 +17,7 @@ from shockt.archive import Archive, object_key
 from shockt.config import PortwatchConfig
 from shockt.loading import ParsedSource, Target, load_partition
 from shockt.manifest import LoadResult
+from shockt.months import MonthRange
 
 DATASET = "portwatch_chokepoints"
 BUNDLE_FILENAME = "responses.json"
@@ -57,19 +59,35 @@ def archive_key(portid: str, year: int) -> str:
     return object_key(DATASET, f"{portid}_{year}", BUNDLE_FILENAME)
 
 
-def data_last_edited(client: httpx.Client, config: PortwatchConfig) -> str:
+@dataclass(frozen=True)
+class LayerInfo:
+    data_last_edited: str
     """When PortWatch last changed the layer's data, as an ISO timestamp."""
+    max_record_count: int
+    """The most records the layer returns per query page."""
+
+
+def layer_info(client: httpx.Client, config: PortwatchConfig) -> LayerInfo:
+    """The layer's last data edit and page size, from its metadata."""
     layer_url = config.query_url.removesuffix("/query")
     info = _json(http.get(client, layer_url, {"f": "json"}))
     editing = info.get("editingInfo")
     edited_ms = editing.get("dataLastEditDate") if isinstance(editing, dict) else None
     if not isinstance(edited_ms, int):
         raise PortwatchError("layer info has no editingInfo.dataLastEditDate")
-    return datetime.fromtimestamp(edited_ms / 1000, UTC).isoformat(timespec="seconds")
+    max_records = info.get("maxRecordCount")
+    if not isinstance(max_records, int) or max_records < 1:
+        raise PortwatchError(f"layer info has no usable maxRecordCount: {max_records!r}")
+    return LayerInfo(
+        data_last_edited=datetime.fromtimestamp(edited_ms / 1000, UTC).isoformat(
+            timespec="seconds"
+        ),
+        max_record_count=max_records,
+    )
 
 
 def fetch_bundle(
-    client: httpx.Client, config: PortwatchConfig, portid: str, year: int, data_edited: str
+    client: httpx.Client, config: PortwatchConfig, portid: str, year: int, layer: LayerInfo
 ) -> bytes:
     """Every page of one chokepoint-year, as a JSON bundle."""
     pages: list[dict[str, object]] = []
@@ -81,7 +99,7 @@ def fetch_bundle(
             "returnGeometry": "false",
             "orderByFields": "date",
             "resultOffset": str(offset),
-            "resultRecordCount": str(config.page_size),
+            "resultRecordCount": str(layer.max_record_count),
             "f": "json",
         }
         body = _json(http.get(client, config.query_url, params))
@@ -101,14 +119,14 @@ def fetch_bundle(
         "portid": portid,
         "year": year,
         "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "data_last_edited": data_edited,
+        "data_last_edited": layer.data_last_edited,
         "pages": pages,
     }
     return json.dumps(bundle).encode()
 
 
-def parse_bundle(bundle: bytes) -> ParsedSource:
-    """Rows for `raw.portwatch_chokepoints` from an archived bundle."""
+def parse_bundle(bundle: bytes, months: MonthRange) -> ParsedSource:
+    """Rows for `raw.portwatch_chokepoints` from an archived bundle, for days in `months`."""
     data = json.loads(bundle)
     portid, year = data["portid"], data["year"]
     rows: list[tuple[object, ...]] = []
@@ -126,6 +144,8 @@ def parse_bundle(bundle: bytes) -> ParsedSource:
             if object_id in seen:
                 continue
             seen.add(object_id)
+            if not months.contains(day):
+                continue
             rows.append(
                 (
                     object_id,
@@ -137,7 +157,7 @@ def parse_bundle(bundle: bytes) -> ParsedSource:
             )
     return ParsedSource(
         rows=rows,
-        rows_received=len(rows),
+        rows_received=len(seen),
         source_version=f"data last edited {data['data_last_edited']}",
     )
 
@@ -147,9 +167,13 @@ def load_year(
     archive: Archive,
     portid: str,
     year: int,
+    months: MonthRange,
     fetch: Callable[[], bytes] | None,
 ) -> LoadResult:
-    """Archive one chokepoint-year (or reuse the archived copy when `fetch` is None) and load it."""
+    """Archive one chokepoint-year (or reuse the archived copy when `fetch` is None) and load
+    the days in `months`, which must fall in `year`."""
+    if months.years() != range(year, year + 1):
+        raise PortwatchError(f"months {months.first}..{months.last} are not all in {year}")
     return load_partition(
         conn,
         archive,
@@ -157,9 +181,9 @@ def load_year(
         partition_key(portid, year),
         key=archive_key(portid, year),
         content_type="application/json",
-        params={"portid": portid, "year": year},
+        params={"portid": portid, "year": year, **months.as_params()},
         obtain=fetch,
-        parse=parse_bundle,
+        parse=lambda body: parse_bundle(body, months),
     )
 
 

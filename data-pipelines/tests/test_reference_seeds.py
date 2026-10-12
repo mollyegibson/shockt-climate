@@ -41,7 +41,7 @@ Code     |    Name                                                | ISO Code
 def test_parse_schedule_c_maps_iso3_including_census_specific_codes() -> None:
     lines = SCHEDULE_C + "\n".join(f"{1000 + i:04d} | Filler {i} | US" for i in range(200))
 
-    countries = {c.census_code: c for c in census_schedules.parse_schedule_c(lines)}
+    countries = {c.census_code: c for c in census_schedules.parse_schedule_c(lines, {"KV": "XKX"})}
 
     assert countries["5830"].iso3 == "TWN"
     assert countries["4803"].iso3 == "XKX"
@@ -50,7 +50,7 @@ def test_parse_schedule_c_maps_iso3_including_census_specific_codes() -> None:
 
 def test_parse_schedule_c_rejects_a_page_that_isnt_the_schedule() -> None:
     with pytest.raises(census_schedules.ScheduleError):
-        census_schedules.parse_schedule_c(SCHEDULE_C)
+        census_schedules.parse_schedule_c(SCHEDULE_C, {})
 
 
 def test_parse_schedule_d_reads_district_and_port_entries() -> None:
@@ -63,3 +63,11 @@ def test_parse_schedule_d_reads_district_and_port_entries() -> None:
 
     assert ports[0] == census_schedules.Port("0101", "PORTLAND, ME", "01")
     assert ports[1] == census_schedules.Port("0102", "BANGOR, ME", "01")
+
+
+def test_parse_schedule_c_leaves_census_specific_codes_without_an_override_blank() -> None:
+    lines = SCHEDULE_C + "\n".join(f"{1000 + i:04d} | Filler {i} | US" for i in range(200))
+
+    countries = {c.census_code: c for c in census_schedules.parse_schedule_c(lines, {})}
+
+    assert countries["4803"].iso2 == "KV" and countries["4803"].iso3 is None

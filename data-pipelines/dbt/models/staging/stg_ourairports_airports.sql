@@ -1,4 +1,4 @@
--- US and US-territory airports with scheduled service, large or medium, with a two-letter state or territory code.
+-- Airports in the US and its territories (Schedule C), of the types and service in `air_ports` (config/transforms.yaml), with a two-letter state or territory code.
 select
     a.iata_code,
     a.name,
@@ -12,6 +12,6 @@ select
     a.load_id
 from {{ source('raw', 'ourairports_airports') }} as a
 where a.load_id in ({{ succeeded_loads('ourairports_airports') }})
-    and a.scheduled_service = 'yes'
-    and a.type in ('large_airport', 'medium_airport')
-    and a.iso_country in ('US', 'PR', 'VI', 'GU', 'AS', 'MP')
+    {% if var('air_ports')['scheduled_service_only'] %}and a.scheduled_service = 'yes'{% endif %}
+    and a.type in ({% for t in var('air_ports')['airport_types'] %}'{{ t }}'{% if not loop.last %}, {% endif %}{% endfor %})
+    and a.iso_country in ({{ us_and_territories_iso2() }})
