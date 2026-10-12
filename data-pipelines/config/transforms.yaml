@@ -18,6 +18,16 @@ climatetrace:
   # contradicts their end port (a "US arrival" that ends outside the US).
   max_contradicting_end_point_share: 0.005
 
+overland_weight:
+  # An origin's own kg per dollar of air and vessel shipments is used for a code, and counts toward
+  # its range, only when those shipments reach this value over the loaded months.
+  min_air_vessel_value_usd: 50000000
+  # The estimate's range: these value-weighted percentiles of kg per dollar across the origins that
+  # reach the minimum, so a small origin with an unusual product mix can't set the range.
+  range_percentiles:
+    - 0.05
+    - 0.95
+
 census_ports:
   # Largest share of case vessel or air tonnage allowed at Census ports dim_port can't place.
   max_unlocated_share: 0.01

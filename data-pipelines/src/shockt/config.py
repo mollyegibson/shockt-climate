@@ -206,12 +206,29 @@ class ClimateTraceTransformsConfig(ConfigModel):
     port."""
 
 
+class OverlandWeightConfig(ConfigModel):
+    min_air_vessel_value_usd: float
+    """An origin's air and vessel value of a code needed for its own kg per dollar to be used."""
+    range_percentiles: list[float]
+    """Value-weighted percentiles of kg per dollar across origins that bound an estimate's range."""
+
+    @model_validator(mode="after")
+    def _ordered_percentiles(self) -> "OverlandWeightConfig":
+        if len(self.range_percentiles) != 2:
+            raise ValueError(f"range_percentiles must be two values: {self.range_percentiles}")
+        low, high = self.range_percentiles
+        if not 0 <= low < high <= 1:
+            raise ValueError(f"range_percentiles must satisfy 0 <= low < high <= 1: {low}, {high}")
+        return self
+
+
 class TransformsConfig(ConfigModel):
     """Settings the dbt models read; `shockt build` passes them to dbt as vars."""
 
     air_ports: AirPortsConfig
     census_ports: CensusPortsConfig
     climatetrace: ClimateTraceTransformsConfig
+    overland_weight: OverlandWeightConfig
 
 
 class HsPrefix(ConfigModel):
