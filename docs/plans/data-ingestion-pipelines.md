@@ -2,7 +2,7 @@
 
 **Status:** Draft · **Workstream:** Data engineering · **Date:** 2026-10-08 · **Updated:** 2026-10-12
 
-This plan covers getting source data into the `raw` and `core` layers of the ShockT Climate Postgres database: the fetched pipelines (Census, BTS TransBorder, IMF PortWatch, Climate TRACE) and the reference loaders (country and port codes, emission factors, product weights, distances). It does not cover the `inputs` and `outputs` layers, the engine, or the app.
+This plan covers getting source data into the `raw` and `core` layers of the ShockT Climate Postgres database: the fetched pipelines (Census, BTS TransBorder, IMF PortWatch, Climate TRACE) and the reference data (country and port codes, locations for ports, airports, crossings and assembly sites, emission factors, distances). It does not cover the `inputs` and `outputs` layers, the engine, or the app.
 
 ## 1. Decisions
 
@@ -12,7 +12,7 @@ This plan covers getting source data into the `raw` and `core` layers of the Sho
 | Database | One Neon Postgres project in AWS us-east-2 on the free tier (1 GB Postgres storage, 100 compute-hours a month). Local Docker Postgres for development; a throwaway Postgres testcontainer per test session. |
 | Archive | Neon Object Storage in the same project (S3-compatible, 5 GB on the free tier, separate from Postgres storage). Every downloaded source file is archived before it's parsed. |
 | Layers in scope | `raw` (data as fetched) and `core` (cleaned, modeled tables). |
-| Language and tooling | Python, managed with `uv`. `httpx` for HTTP, `polars` for parsing, `psycopg` for Postgres, `pydantic` for record validation, `typer` for the CLI, `tenacity` for retries. |
+| Language and tooling | Python, managed with `uv`. `httpx` for HTTP, `polars` for parsing, `psycopg` for Postgres, `pydantic` for config validation, `typer` for the CLI, `tenacity` for retries. |
 | Schema management | Alembic migrations (raw SQL inside each migration) for the `raw` schema, roles and grants. dbt (`dbt-core` + `dbt-postgres`) builds `core` from `raw`. |
 | Running | A Python CLI (`shockt`), run by hand. One idempotent command per source. No orchestrator or schedule. |
 | Refresh | Load once for the MVP. Each load records its source version in `raw.load_manifest`. |
@@ -33,7 +33,7 @@ This plan covers getting source data into the `raw` and `core` layers of the Sho
 | Census imports by state (`statehs`) | REST API | API key | Month × HS × country × state of destination | Air and vessel | `STATE` is state of destination; `XX` = unidentified |
 | Census State/Port Imports | Quarterly ZIP of fixed-width files | None | Quarter × state × port of unlading × port of entry × country, all goods | Air, vessel and containerized vessel | No HS code; loader not built yet (Section 5.4) |
 | BTS TransBorder | CSV/ZIP files | None, but scripted downloads return HTTP 403 | Month × state or port × HS-2 × mode × Canada/Mexico | Weight for imports by land modes only, not air or vessel | Manual download fallback (Section 5.5) |
-| IMF PortWatch chokepoints | ArcGIS FeatureServer query API | None | Day × chokepoint | Vessel counts and capacity by ship type | 1,000 records per page |
+| IMF PortWatch chokepoints | ArcGIS FeatureServer query API | None | Day × chokepoint | Vessel counts and capacity by ship type | Page size from the layer's `maxRecordCount` (1,000) |
 | OurAirports | CSV download | None | Airport | n/a | Airport coordinates, by IATA code; public domain |
 | GeoNames cities5000 | ZIP download | None | City (population ≥ 5,000) | n/a | City coordinates; CC BY 4.0 |
 | BTS Border Crossing Entry Data | data.bts.gov API | None | Port of entry × month × measure | n/a | Crossing coordinates by Census port code |
@@ -227,12 +227,12 @@ Planned: `shockt ingest census-state-port` (Section 5.4), `shockt ref sea-distan
 
 ## 4. Shared behavior
 
-- **HTTP:** retries on timeouts, 429 and 5xx responses, with exponential backoff and jitter. Requests to one host run one at a time with a short delay between them. User agent: `shockt-climate/<version> (<repo url>)`.
+- **HTTP:** retries on transport errors, 429 and 5xx responses, with exponential backoff and jitter. Loaders send one request at a time, with no added delay. User agent: `shockt-climate/<version>`.
 - **Config:** every section of `config/*.yaml` is parsed by a pydantic model that forbids unknown keys, so a misspelled or unread key fails the command instead of being ignored.
 - **Validation:** each parser checks the shape and types of every row it reads (expected columns, numeric fields, the partition's period) and raises on anything unexpected, which fails the load. Partial loads are never committed.
 - **Bulk insert:** rows are written with `COPY` through `psycopg`.
 - **Secrets:** read from the environment (`.env` in development). `CENSUS_API_KEY` is never written to the manifest or into archived request metadata; `params` stores the request without it. The object storage secret is shown once by Neon when the credential is created, so it goes straight into `.env` or a password manager.
-- **Object storage:** uploads retry on `503 SlowDown`, which Neon returns when it throttles heavy use.
+- **Object storage:** `boto3` runs in its standard retry mode (6 attempts), which retries the `503 SlowDown` Neon returns when it throttles heavy use.
 - **Observability:** each command prints a one-line summary per partition (rows, duration), and `shockt loads list` reads the manifest.
 
 ## 5. Fetched pipelines
@@ -240,8 +240,8 @@ Planned: `shockt ingest census-state-port` (Section 5.4), `shockt ref sea-distan
 ### 5.1 Census imports by HS (`census_hs`)
 
 - **Endpoint:** `GET https://api.census.gov/data/timeseries/intltrade/imports/hs`
-- **Request, one per month:** `get=I_COMMODITY,I_COMMODITY_SDESC,CTY_CODE,CTY_NAME,GEN_VAL_MO,CON_VAL_MO,AIR_VAL_MO,AIR_WGT_MO,VES_VAL_MO,VES_WGT_MO,CNT_VAL_MO,CNT_WGT_MO,GEN_QY1_MO,UNIT_QY1,GEN_QY2_MO,UNIT_QY2,LAST_UPDATE&time=YYYY-MM&COMM_LVL=HS10&key=...`, filtered to the case HS prefixes.
-- **Quantities:** `GEN_QY1_MO` with `UNIT_QY1` (for example a count of units) covers all modes combined. `core` uses it to estimate land-mode weight (Section 7.3).
+- **Request, one per month × HS prefix:** `get=I_COMMODITY,I_COMMODITY_SDESC,CTY_CODE,CTY_NAME,SUMMARY_LVL,GEN_VAL_MO,AIR_VAL_MO,AIR_WGT_MO,VES_VAL_MO,VES_WGT_MO,CNT_VAL_MO,CNT_WGT_MO,CON_VAL_MO,GEN_QY1_MO,UNIT_QY1,GEN_QY2_MO,UNIT_QY2,LAST_UPDATE&time=YYYY-MM&COMM_LVL=HS10&I_COMMODITY={prefix}*&key=...`. Each endpoint's deepest HS level (`COMM_LVL`) is a constant in `census_api.py`, not config.
+- **Quantities:** `GEN_QY1_MO` with `UNIT_QY1` (for example a count of units) covers all modes combined. It isn't used for weight: weight per unit varies about fortyfold across origins for 847150, while weight per dollar is nearly constant (Section 7.3).
 - **Partition:** month × HS prefix (`2025-03:847150`), one request per partition, so adding a case's HS codes fetches only the new prefixes and leaves existing loads and archives untouched. Applies to all three Census API endpoints. **Version:** the fetch time. `LAST_UPDATE` comes back as `"0"`, so it can't serve as a version.
 - **Filter on load** (per endpoint in `config/sources.yaml`, recorded in the manifest `params` with the number of rows received): every endpoint drops country-group rows and rows whose values, weights and quantities are all zero; `porths` and `statehs` also keep only the origins in `config/origins.yaml` (`origins_only`) and the all-countries total. Unfiltered, one month of the three endpoints took 24.7 MB in Postgres, about 1.4 GB for 2022–2026; the archive keeps every response, so `--from-archive` can reload with a wider filter.
 - **Rows:** the response includes country-group rows (`SUMMARY_LVL = 'CGP'`) and a world total (`CTY_CODE = '-'`). Raw keeps them, and `core` excludes them.
@@ -269,7 +269,7 @@ CREATE TABLE raw.census_hs (
   unit_qy1           text,                 -- unit of quantity 1
   gen_qy2_mo         bigint,
   unit_qy2           text,
-  last_update        date,
+  last_update        text,                 -- comes back as "0"
   PRIMARY KEY (load_id, time, i_commodity, cty_code)
 );
 ```
@@ -291,6 +291,7 @@ CREATE TABLE raw.census_porths (
   cty_name           text,
   port               text    NOT NULL,     -- Schedule D district (2) + port (2)
   port_name          text,
+  summary_lvl        text,
   gen_val_mo         bigint,
   air_val_mo         bigint,
   air_wgt_mo         bigint,
@@ -298,7 +299,7 @@ CREATE TABLE raw.census_porths (
   ves_wgt_mo         bigint,
   cnt_val_mo         bigint,
   cnt_wgt_mo         bigint,
-  last_update        date,
+  last_update        text,
   PRIMARY KEY (load_id, time, i_commodity, cty_code, port)
 );
 ```
@@ -317,6 +318,7 @@ CREATE TABLE raw.census_statehs (
   cty_code           text    NOT NULL,
   cty_name           text,
   state              text    NOT NULL,     -- USPS code; 'XX' = unidentified
+  summary_lvl        text,
   gen_val_mo         bigint,
   con_val_mo         bigint,
   air_val_mo         bigint,
@@ -325,7 +327,7 @@ CREATE TABLE raw.census_statehs (
   ves_wgt_mo         bigint,
   cnt_val_mo         bigint,
   cnt_wgt_mo         bigint,
-  last_update        date,
+  last_update        text,
   PRIMARY KEY (load_id, time, i_commodity, cty_code, state)
 );
 ```
@@ -389,11 +391,11 @@ CREATE TABLE raw.census_state_port (
 ### 5.5 BTS TransBorder Freight (`bts_transborder`)
 
 - **What it adds:** truck and rail imports from Mexico with shipping weight. TransBorder captures weight for imports by land modes, not by air or vessel ([BTS](https://www.bts.gov/statistical-products/transborder-freight-data/north-american-transborder-freight-data-faqs)).
-- **Commodity detail is HS-2 only** (`COMMODITY2`). Chapter 84 includes all computers, so TransBorder can't isolate 847150. `core` estimates overland weight for the case codes from a kg-per-dollar ratio (Section 7.3).
+- **Commodity detail is HS-2 only** (`COMMODITY2`). Chapter 84 includes all computers, so TransBorder can't isolate 847150. Overland weight for the case codes comes from Census instead (Section 7.3); TransBorder gives the truck/rail split and a cross-check.
 - **Access (spike 4):** there's no API. data.bts.gov publishes only TransBorder dashboards and a national total (Monthly Transportation Statistics, `crem-w557`, value only), and bts.gov blocks scripted downloads with HTTP 403. One person downloads each month from the [raw data page](https://www.bts.gov/topics/transborder-raw-data) into `data/manual/bts/<Mon><YYYY>/` (e.g. `Jan2024/dot2_0124.csv`), and `--from-dir` archives the files before parsing. After that, anyone can reload from the archive.
 - **Files:** one folder per month with three CSVs (`dot1`, `dot2`, `dot3`) and a header row. `dot1` is state × port with no commodity, so it isn't loaded. `dot2` and `dot3` give identical Mexico totals per mode, and every kept row has a weight, including air and vessel. `MONTH` is zero-padded (`01`).
 - **Fields** (confirmed against January 2024): `TRDTYPE, USASTATE, COMMODITY2, DISAGMOT, MEXSTATE, CANPROV, COUNTRY, VALUE, SHIPWT, FREIGHT_CHARGES, DF, CONTCODE, MONTH, YEAR` in `dot2`; `dot3` has `DEPE` and no state columns. Codes: [BTS codes document](https://www.bts.gov/sites/bts.dot.gov/files/docs/browse-statistical-products-and-data/transborder-freight-data/220171/all-codes-north-american-transborder-freight-raw-data.pdf).
-- **The chapter-level weight ratio overstates server weight.** In January 2024, chapter 84 imports from Mexico by truck averaged 0.061 kg per dollar (about $16/kg) because the chapter mixes servers with heavy machinery; servers are worth hundreds to thousands of dollars per kilogram. The unit-based estimate (Section 7.3) comes first for servers; the ratio is a last resort.
+- **The chapter-level weight ratio is only a cross-check.** For servers it is far too heavy: chapter 84 imports from Mexico by truck average about 47 kg per $1,000 (2022 onward) because the chapter mixes servers with heavy machinery, against about 2.4–3.2 kg per $1,000 for servers' own air and vessel shipments. For the Case 2 electrical gear, chapter 85's 54 kg per $1,000 falls inside the range across origins.
 - **Filter on load:** `TRDTYPE = 2` (imports), `COUNTRY` in the origins in `config/origins.yaml` (TransBorder's only one is Mexico), and `COMMODITY2` in the HS-2 chapters of every case code in `config/hs_codes.yaml` (today 84 for servers and 85 for the Case 2 electrical gear). Chapter 85 keeps Mexico's overland supply of Case 2 gear measurable, though Case 2's lanes don't use it.
 - **Partition:** month, covering both `dot2` (state × commodity) and `dot3` (port × commodity); `source_table` records which. Each month's ZIP is archived unchanged at `raw/bts_transborder/{YYYY-MM}/transborder_{YYYY-MM}.zip`, with the downloaded file name in the manifest `params`. The month comes from the CSV names inside the ZIP (BTS's ZIP names vary: `Feb-2022.zip`, `sept2023.zip`, `February_2026.zip`), and every row's `YEAR`/`MONTH` must match it. Year-to-date (`dotN_ytd_MMYY.csv`), annual (`dotN_YYYY.csv`) and `dot1` files are ignored. About 775 rows a month are kept.
 - **Browser downloads can be cut short:** 6 of 56 ZIPs arrived truncated. The loader checks each ZIP before loading and names any it can't read.
@@ -524,6 +526,10 @@ CREATE TABLE raw.climatetrace_voyages (
   other11                    double precision,       -- deadweight tonnage (inferred)
   other12                    double precision,       -- unknown
   original_inventory_sector  text,
+  start_lon                  double precision,       -- start and end points of `location` (migration 0007)
+  start_lat                  double precision,
+  end_lon                    double precision,
+  end_lat                    double precision,
   PRIMARY KEY (load_id, asset_identifier, start_date)
 );
 ```
@@ -586,9 +592,9 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 |---|---|---|---|
 | Asian and Mexican departure ports | Every Climate TRACE start port on the configured lanes | Median voyage start point | Container voyages |
 | US arrival seaports | Every Climate TRACE end port | Median voyage end point (`dim_climatetrace_ports`) | Container voyages |
-| US air gateways | Every Census port with air imports of the case HS codes | OurAirports airports in the US and its territories (Schedule C's `1000` and `9` block, from `seed_census_countries`) of the types in `air_ports.airport_types`, with scheduled service if `air_ports.scheduled_service_only` (`config/transforms.yaml`), by a scripted match in `dim_census_air_ports`: by airport name when the port name names an airport, else the nearest large airport within `air_ports.city_radius_km` of the port's GeoNames city, in any state. Unmatched ports are dropped; a dbt test fails if they carry more than `air_ports.max_unmatched_share` of air tonnage. Both settings are in `config/transforms.yaml` | Air tonnage |
+| US air gateways | Every Census port with air imports of the case HS codes | OurAirports airports in the US and its territories (Schedule C's `1000` and `9` block, from `seed_census_countries`) of the types in `air_ports.airport_types`, with scheduled service if `air_ports.scheduled_service_only` (`config/transforms.yaml`), by a scripted match in `dim_census_air_ports`: by airport name when the port name names an airport, else the nearest large airport within `air_ports.city_radius_km` of the port's GeoNames city, in any state. Unmatched ports are dropped; a dbt test fails if they carry more than `air_ports.max_unmatched_share` of air tonnage. All these settings are in `config/transforms.yaml` | Air tonnage |
 | Mexico–US border crossings | Every crossing with truck or rail imports in the case HS-2 chapters | BTS Border Crossing Entry Data, by Census port code | Truck and rail value (BTS TransBorder) |
-| Mexican assembly sites | Every DENUE establishment in an industry that makes the case products: case HS-10 codes → NAICS (Census concordance) → DENUE industries matched at 5 digits, the level at which US NAICS and Mexican SCIAN are harmonized | DENUE coordinates | Employee-size band, converted to a number by a rule in code |
+| Mexican assembly sites | Every DENUE establishment in an industry that makes the case products: the HS-10 codes of the cases in `reference_sources.denue.cases` → NAICS (Census concordance) → DENUE industries matched at 5 digits | DENUE coordinates | Employee-size band, converted to a number by a rule in code (open question 11) |
 | US destination states | Every state with case imports in `census_statehs` | Population-weighted centroid of the state's GeoNames cities | Case air and vessel tonnage by state (`fct_imports_state_monthly`) |
 
 - **Destination limits:** state of destination is where the importer says the goods are going, which can be an integrator or distributor rather than a data center, and a state's population centroid is not its data-center market (Virginia's is not at Ashburn). Against a cross-country inland leg the error is modest, and it applies equally to the baseline and to a shock.
@@ -599,7 +605,7 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 
 ### 6.3 Distances
 
-**Planned.** Observed sea distances come from Climate TRACE's distance sailed. Counterfactual sea distances (Panama or the Red Sea closed) come from `searoute`, a Python library, so they're computed outside dbt for every observed port pair and each scenario, and written to a seed by `shockt ref sea-distances`. Air distances (`shockt ref air-distances`) between air nodes; the method is still to be decided.
+**Planned.** Observed sea distances come from Climate TRACE's distance sailed. Counterfactual sea distances (Panama or the Red Sea closed) come from `searoute`, a Python library, so they're computed outside dbt for every observed port pair and each scenario, and written to a seed by `shockt ref sea-distances`. Air distances (`shockt ref air-distances`) between air nodes; the method is open question 12.
 
 `shockt ref sea-distances` uses `searoute` (tested at 1.6.0), which supports closing passages through `restrictions`. Kaohsiung → Savannah, for example, measures:
 - 19,813 km with all passages open
@@ -616,7 +622,7 @@ Each run writes the `searoute` version into every row.
 
 - **Units:** weight in tonnes (`weight_t = kg / 1000`), value in USD, distance in km, emissions in t CO2e.
 - **Month:** `month date` set to the first of the month.
-- **Mode:** one long-format column (`air`, `vessel`, `vessel_containerized`, `other`; `truck` and `rail` once TransBorder is loaded) instead of one column per mode, which suits the diversion-rate calculation. `vessel_containerized` is a subset of `vessel` and is never summed with it.
+- **Mode:** one long-format column (`air`, `vessel`, `vessel_containerized`, `other`; `truck` and `rail` once `fct_mexico_overland_monthly` is built) instead of one column per mode, which suits the diversion-rate calculation. `vessel_containerized` is a subset of `vessel` and is never summed with it.
 - **Excluded from core:** Census country-group rows (`SUMMARY_LVL = 'CGP'`), world totals (`CTY_CODE = '-'`) and all-ports totals (`PORT = '-'`).
 - **Lineage:** every core fact row carries the `load_id` it came from.
 
@@ -627,7 +633,8 @@ Each run writes the `searoute` version into every row.
 census_cty_code   text PRIMARY KEY,
 cty_name          text NOT NULL,
 iso3              text,
-region            text NOT NULL            -- a region of config/origins.yaml, or other
+region            text NOT NULL,           -- a region of config/origins.yaml, or other
+missing_from_schedule boolean NOT NULL     -- a code seen in the data but not in Schedule C
 
 -- core.dim_port
 port_code         text PRIMARY KEY,        -- district (2) + port (2)
@@ -637,7 +644,10 @@ state             text,                    -- from the Schedule D name
 is_border_crossing boolean NOT NULL,       -- a US–Mexico crossing in BTS Border Crossing Entry Data
 lat, lon          double precision,        -- the port's point (see Section 6)
 location_method   text NOT NULL,           -- border_crossing | airport_name | geonames_city | airport_municipality | unmatched
-coast_region      text NOT NULL            -- coast_region(lon, lat), or unknown without a point
+coast_region      text NOT NULL,           -- coast_region(lon, lat), or unknown without a point
+named_airport_iata, municipality_airport_iata text,  -- airport matches, reused by dim_census_air_ports
+city_lat, city_lon double precision,       -- the port's GeoNames city, reused by dim_census_air_ports
+missing_from_schedule boolean NOT NULL     -- a code seen in the data but not in Schedule D
 
 -- core.dim_hs
 hs10              text PRIMARY KEY,
@@ -653,7 +663,8 @@ cases             text[] NOT NULL          -- cases whose HS prefix this code ma
 -- core.fct_imports_monthly            grain: month × hs10 × country × mode
 month date, hs10 text, hs6 text, census_cty_code text, mode text,
 value_usd bigint, weight_t numeric,        -- weight null for `other`, which Census doesn't weigh
-weight_method text,                        -- 'reported' | 'estimated_units' | 'estimated_bts_ratio' | null
+weight_method text,                        -- 'reported' | 'estimated_value_ratio' (planned) | null
+weight_t_low numeric, weight_t_high numeric, -- the range of an estimated weight; equal to weight_t when reported
 load_id uuid
 
 -- core.fct_imports_port_monthly       grain: month × HS-6 × country × port × mode
@@ -675,7 +686,8 @@ value_usd bigint, weight_t numeric, kg_per_usd numeric, load_id uuid
 
 -- core.fct_chokepoint_transits_daily  grain: day × chokepoint
 date date, chokepoint_id text, chokepoint_name text,
-n_container int, n_cargo int, n_total int, capacity_container bigint, capacity bigint,
+n_container, n_dry_bulk, n_general_cargo, n_roro, n_tanker, n_cargo, n_total int,
+container_t, dry_bulk_t, general_cargo_t, roro_t, tanker_t, cargo_t, total_t bigint,  -- estimated trade volume, metric tons
 load_id uuid
 
 -- core.fct_chokepoint_transits_monthly   monthly sums and daily means of the above
@@ -700,14 +712,14 @@ total_co2e_t float, co2e_t_per_km float
 
 - `fct_imports_state_port_quarterly`, once the State/Port loader (Section 5.4) exists.
 - `fct_mexico_overland_monthly`, from the loaded BTS TransBorder data.
-- The estimated land-mode weights below (`estimated_units`, `estimated_bts_ratio`), which need product weights. Their source is an open question: it must be fetched and archived like any other source.
+- The estimated land-mode weights below (`estimated_value_ratio`), derived from loaded Census data.
 - `dim_nodes` (Section 6.2) and the distance tables (Section 6.3). Inland legs will be built from the nodes; they have no separate source.
 
-**Land-mode weight for Mexico (planned).** Census weighs only air and vessel imports. For imports from Mexico, the `other` row gets an estimated weight:
+**Land-mode weight for Mexico (planned).** Census weighs only air and vessel imports. For imports from Mexico, the `other` row (general imports value minus air and vessel value) gets an estimated weight from value, because for these codes shipped weight tracks value far more closely than unit count: across origins, 847150's weight per unit varies about fortyfold while its weight per dollar stays within about 2.4–3.2 kg per $1,000 (China, at about 6, is the exception).
 
-- **Value:** general imports value minus air and vessel value.
-- **Weight, first choice (`weight_method = 'estimated_units'`):** when `UNIT_QY1` is a unit count, land units are total units × (land value ÷ total value), and weight is land units × the product's unit weight. This applies to servers.
-- **Weight, fallback (`weight_method = 'estimated_bts_ratio'`):** land value × TransBorder's kg per dollar for the HS-2 chapter that month. Chapter 84 mixes light, valuable goods with heavy machinery, so this ratio can be far from the right figure for servers. It is used only when no unit-based estimate exists.
+- **Ratio:** kg per dollar of the same HS-10 code's air and vessel shipments over the loaded date range. The origin's own ratio when its air and vessel shipments of the code reach a minimum value (a setting in `config/transforms.yaml`, for example $50M); otherwise the ratio across all origins. Mexico's servers use Mexico's own ratio (about $1.9B of air and vessel shipments); Mexico ships the Case 2 gear almost entirely overland, so those codes use the all-origins ratio.
+- **Weight (`weight_method = 'estimated_value_ratio'`):** land value × the ratio.
+- **Range (`weight_t_low`, `weight_t_high`):** land value × the lowest and highest ratio among origins whose air and vessel shipments of the code reach the minimum. It is narrow for servers and wide for the Case 2 gear: about 4–7 times between the lightest and heaviest origin for each transformer and switchgear code. Any analysis that uses an estimated weight shows its range.
 
 The split of that weight into `truck` and `rail` uses TransBorder's value shares for the chapter that month. Every estimated row names its method, and the case pages show it.
 
@@ -716,7 +728,7 @@ The split of that weight into `truck` and `rail` uses TransBorder's value shares
 **Built:**
 
 - **Uniqueness:** `unique` and `not_null` on each fact's grain columns, with a `dbt_utils.unique_combination_of_columns` test per fact.
-- **Relationships:** facts to `dim_country`, `dim_port` and `dim_hs`. Unmapped codes fail the build, which forces the seeds to stay complete.
+- **Relationships:** facts to `dim_country`, `dim_port` and `dim_hs`. The dimensions add any code seen in the data and flag it `missing_from_schedule`, so a code the Census lists lack shows up as a flag, not a gap.
 - **Accepted values:** `mode`, `coast_region`, `location_method`, emission factor `source` and `mode`. Values that come from config (origin regions) are checked by `assert_regions_are_configured_origins`, so a config change doesn't break a hard-coded list.
 - **Rules pinned to known cases:** `assert_coast_region_rules`, `assert_census_region_rules`, `assert_census_port_coast_regions`, `assert_epa_vehicle_fuels_match_loaded_vehicles`, `assert_container_ship_rule`, `assert_us_territories_from_schedule_c`.
 - **Coverage:** `assert_census_ports_located` and `assert_air_ports_unmatched_share_within_limit` bound the tonnage at ports that can't be placed; `assert_no_case_ports_in_other_region` and `assert_no_container_ports_in_other_region` fail when a port matches no coast rule.
@@ -758,7 +770,7 @@ Each spike is a short task with a written result, completed before the pipeline 
 | # | Question | Affects | How to answer |
 |---|---|---|---|
 | 1 | Does `I_COMMODITY` accept a prefix wildcard? What is the deepest HS level `porths` and `statehs` serve? | 5.1–5.3 | **Answered:** wildcards work on all three endpoints; `hs` serves HS-10, `porths` and `statehs` HS-6 at most (HS-10 returns HTTP 204). |
-| 2 | What are the HS-10 codes under 847150, and does any of them isolate AI servers? | `seed_hs_case_codes` | **Answered:** two codes, `8471.50.0110` (with a CRT monitor) and `8471.50.0150` (other); neither isolates AI servers. Both are counted in units (`No.`), which the unit-based land weight estimate (Section 7.3) relies on. Source: USITC HTS search API. |
+| 2 | What are the HS-10 codes under 847150, and does any of them isolate AI servers? | `seed_hs_case_codes` | **Answered:** two codes, `8471.50.0110` (with a CRT monitor) and `8471.50.0150` (other); neither isolates AI servers. Both are counted in units (`No.`). Source: USITC HTS search API. |
 | 3 | Is each State/Port file one quarter or the year to date? What do `time_period` codes `1`–`4` mean? | 5.4 | **Answered:** one quarter; `time_period` is the quarter number (Section 5.4). |
 | 4 | Can TransBorder files be fetched without manual download (e.g. from `data.bts.gov`)? Do the field names match the codes document? | 5.5 | **Answered:** no API, so downloads stay manual; field names match except `FREIGHT_CHARGES` (migration `0005` renames the raw column). |
 | 5 | What are `shipping_voyages`'s columns, partitioning and size, and how many bytes does the filtered query scan? | 5.7, storage budget | **Answered:** 130 GB, partitioned by year on `start_date`; port fields are in `other2`–`other7`; `activity` is distance in nautical miles; the 2022-onward extraction scans 29.5 GB (Section 5.7). |
@@ -766,6 +778,10 @@ Each spike is a short task with a written result, completed before the pipeline 
 | 7 | What units does PortWatch's `capacity` use? | 5.6 | **Answered:** estimated trade volume in metric tons: each ship's estimated payload share × its deadweight tonnage, summed by ship type; `capacity_cargo` excludes tankers ([layer metadata](https://services9.arcgis.com/weJ1QsnbMYJlCHdG/ArcGIS/rest/services/Daily_Chokepoints_Data/FeatureServer/info/metadata)). |
 | 8 | Is Neon Object Storage generally available or in preview? The docs don't say. | Archive | **Answered:** generally available since September 17, 2026, after a public beta from [July 15, 2026](https://neon.com/blog/neon-backend-is-beta). |
 | 9 | Should Case 2 include water chillers (HS 8418.69), a large part of data-center cooling? | `config/hs_codes.yaml` | **Open; left out for now.** At HS-10 the country-level data separates chillers (8418.69.0140–0160, and possibly some of 0180), but the port and state endpoints stop at HS-6, where 8418.69 also holds ice makers, drinking-water coolers and beverage dispensers. To decide: load 841869 and measure the chillers' share of its tonnage at HS-10; include it only if chillers dominate. |
+| 10 | What source gives product weights (kg per unit) to estimate overland tonnage? | 7.3 | **Answered: none needed.** Overland tonnage is estimated from value with the code's kg per dollar in Census air and vessel shipments, with a low–high range across origins (Section 7.3). A query on 2026-10-12 found weight per dollar nearly constant across origins for servers and spread about 4–7 times for the Case 2 gear. |
+| 11 | How does a DENUE employee-size band (e.g. "6 a 10 personas") become a weight for an assembly site? | 6.2 | **Open; needed before `dim_nodes`.** For example the band's midpoint, with the open top band at its lower bound; a rule in code with a test. |
+| 12 | How are air leg distances measured? | 6.3 | **Open; needed before `shockt ref air-distances`.** Great-circle distance between airports is the usual basis; some methods add a fixed uplift for routing and stacking. The choice should match the factor set's method. |
+| 13 | What units are Climate TRACE's `capacity` and `other11`? | 5.7 | **Open, not blocking.** Inferred as gross and deadweight tonnage. They'd only matter for choosing a container-ship size class, which no source we load supports (every ocean leg uses the UK average, Section 6.1). |
 
 ## 10. Build order
 
@@ -774,10 +790,10 @@ Each spike is a short task with a written result, completed before the pipeline 
 3. **Done.** dbt project: generated seeds for HS case codes and the Census country and port lists; staging and core models for the Census API datasets; tests. **Checkpoint:** analysts can query `core.fct_imports_port_monthly` for Case 1.
 4. Census State/Port loader (5.4).
 5. **Done.** PortWatch (5.6).
-6. **Done:** spike 4 and the BTS TransBorder loader (5.5). **Planned:** `fct_mexico_overland_monthly` and the overland weight estimate, which also needs a product weight source.
+6. **Done:** spike 4 and the BTS TransBorder loader (5.5). **Planned:** `fct_mexico_overland_monthly` and the overland weight estimate (Section 7.3).
 7. **Done.** Spike 5, then Climate TRACE voyages (5.7), `fct_voyages` and `agg_voyage_lanes_monthly`.
 8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Planned:** `dim_nodes` (6.2) and the distance generators (6.3).
-9. A full load into Neon with migrations `0011` and `0012` applied, the six Case 2 HS-6 codes loaded and the HS-4 loads retired, then a storage check against Section 8.
+9. **In progress.** A full load into Neon with migrations `0011` and `0012` applied, the six Case 2 HS-6 codes loaded and the HS-4 loads retired, Climate TRACE reloaded for the 42-country origins, the factor workbooks and DENUE loaded, then a storage check against Section 8.
 
 ## 11. Testing
 
@@ -797,3 +813,7 @@ Each spike is a short task with a written result, completed before the pipeline 
 - [BigQuery sandbox](https://cloud.google.com/bigquery/docs/sandbox)
 - [Neon pricing](https://neon.com/pricing); Neon Object Storage [overview](https://neon.com/docs/storage/overview.md), [buckets and branches](https://neon.com/docs/storage/buckets.md), [authentication](https://neon.com/docs/storage/authentication.md)
 - [searoute (PyPI)](https://pypi.org/project/searoute/)
+- [UK government GHG conversion factors 2026](https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026) and [EPA GHG Emission Factors Hub](https://www.epa.gov/climateleadership/ghg-emission-factors-hub)
+- [Census Schedule C](https://www.census.gov/foreign-trade/schedules/c/country.txt) and [Schedule D](https://www.census.gov/foreign-trade/schedules/d/distcode.html)
+- [OurAirports data](https://davidmegginson.github.io/ourairports-data/airports.csv), [GeoNames cities5000](https://download.geonames.org/export/dump/cities5000.zip) and [BTS Border Crossing Entry Data](https://data.bts.gov/resource/keg4-3bc2.json)
+- [INEGI DENUE](https://www.inegi.org.mx/contenidos/masiva/denue/denue_00_31-33_csv.zip) and the [2022 NAICS Manual](https://www.census.gov/naics/reference_files_tools/2022_NAICS_Manual.pdf)
