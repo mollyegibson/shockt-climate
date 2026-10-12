@@ -62,6 +62,45 @@ class ClimateTraceConfig(BaseModel):
     destination_iso3: list[str]
 
 
+class CensusSchedulesConfig(BaseModel):
+    schedule_c_url: str
+    schedule_d_url: str
+
+
+class OurAirportsConfig(BaseModel):
+    url: str
+
+
+class GeonamesCitiesConfig(BaseModel):
+    url: str
+    countries: list[str]
+
+
+class BorderCrossingsConfig(BaseModel):
+    url: str
+    border: str
+    page_size: int
+
+
+class ImportConcordanceConfig(BaseModel):
+    url_template: str
+    """Workbook URL with `{yy}` for the two-digit year."""
+
+
+class DenueConfig(BaseModel):
+    url: str
+    industry_digits: int
+    """Industry-code prefix length at which DENUE's SCIAN is matched to the concordance's NAICS."""
+
+
+class ReferenceSourcesConfig(BaseModel):
+    ourairports: OurAirportsConfig
+    geonames_cities: GeonamesCitiesConfig
+    bts_border_crossings: BorderCrossingsConfig
+    census_import_concordance: ImportConcordanceConfig
+    denue: DenueConfig
+
+
 class FactorSource(BaseModel):
     url: str
     version: str
@@ -81,6 +120,8 @@ class SourcesConfig(BaseModel):
     bts_transborder: BtsTransborderConfig
     portwatch: PortwatchConfig
     climatetrace: ClimateTraceConfig
+    census_schedules: CensusSchedulesConfig
+    reference_sources: ReferenceSourcesConfig
     emission_factors: EmissionFactorsConfig
 
 

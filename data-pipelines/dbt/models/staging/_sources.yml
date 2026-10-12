@@ -9,5 +9,12 @@ sources:
       - name: census_hs
       - name: census_porths
       - name: census_statehs
+      - name: census_state_port
+      - name: bts_transborder
       - name: portwatch_chokepoints
       - name: climatetrace_voyages
+      - name: ourairports_airports
+      - name: geonames_cities
+      - name: bts_border_crossings
+      - name: census_import_concordance
+      - name: denue_establishments

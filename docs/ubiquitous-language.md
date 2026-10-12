@@ -35,8 +35,10 @@ The agreed vocabulary for ShockT Climate. If a term is here, code and docs spell
 | **raw / core / inputs / outputs** | The four database layers: data as fetched; cleaned models; the team's analytical decisions; engine results. |
 | **Load** | One fetch of one partition of one dataset, recorded as a row in `raw.load_manifest`. |
 | **Partition** | The unit a load replaces, e.g. one month of one Census endpoint. |
+| **Source version** | Which edition of a source a load came from, as the source exposes it (a release label, last-edited date, `Last-Modified` header or fetch time). Recorded in `raw.load_manifest.source_version`; the archived file's SHA-256 identifies the exact bytes. |
 | **Superseded** | A load replaced by a newer load of the same partition; its rows are deleted, its manifest row kept. |
 | **Archive** | The object storage bucket holding every downloaded source file, unchanged, at `raw/{dataset}/{partition}/{filename}`. |
 | **Filter** | Rows dropped as a load is parsed, set in `config/sources.yaml` and recorded in the manifest `params`. |
-| **State group** | `east_bound`, `west_control` or `ambiguous`: the destination states used to test Case 2 inland routing. |
 | **HS-6 / HS-10** | International 6-digit Harmonized System code / US 10-digit extension. The Census port and state endpoints serve HS-6 at most. |
+| **Concordance** | The Census import concordance: each year's mapping from HS-10 commodity to NAICS industry, SITC and end use. |
+| **Case industries** | The industry codes (NAICS, cut to 5 digits, where Mexico's SCIAN agrees) that the concordance maps from the case HS codes; they select DENUE establishments. |

@@ -11,7 +11,7 @@ import pytest
 from shockt.config import ClimateTraceConfig
 from shockt.sources.climatetrace import (
     METADATA_KEY,
-    SOURCE_COLUMNS,
+    RESULT_COLUMNS,
     TARGET,
     ClimateTraceError,
     archive_key,
@@ -53,6 +53,10 @@ def voyage(**overrides: object) -> dict[str, object]:
         "other11": 153949.0,
         "other12": 847.498,
         "original_inventory_sector": "international-shipping",
+        "start_lon": 120.28,
+        "start_lat": 22.61,
+        "end_lon": -118.21,
+        "end_lat": 33.75,
     }
     return {**base, **overrides}
 
@@ -93,7 +97,7 @@ def test_year_query_passes_values_as_parameters() -> None:
     assert "@start" in query.sql and "@origins" in query.sql
     assert "TWN" not in query.sql and "2024" not in query.sql
     assert dict((n, v) for n, _, v in query.params)["origins"] == ["TWN", "MEX"]
-    assert "location" not in query.sql
+    assert "ST_X(ST_ENDPOINT(location)) AS end_lon" in query.sql
 
 
 def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
@@ -126,9 +130,10 @@ def test_parse_year_maps_columns_and_drops_duplicate_voyages() -> None:
     assert row["activity"] == 6268.439
     assert row["co2_emissions_factor"] == 0.846
     assert row["other3"] == "Port of Long Beach,CA"
-    assert parsed.source_vintage == "release v5_11_0"
+    assert parsed.source_version == "release v5_11_0"
     assert parsed.bytes_processed == 10**9
-    assert len(TARGET.columns) == len(SOURCE_COLUMNS) + 1
+    assert row["end_lon"] == -118.21
+    assert len(TARGET.columns) == len(RESULT_COLUMNS) + 1
 
 
 def test_parse_year_rejects_a_voyage_from_another_year() -> None:
@@ -153,8 +158,16 @@ def test_load_year_records_bytes_processed_in_the_manifest(
     assert memory_archive.objects[archive_key(2024)] == body
     assert result.row_count == 2
     manifest = conn.execute(
-        "SELECT partition_key, source_vintage, bytes_processed FROM raw.load_manifest "
+        "SELECT partition_key, source_version, bytes_processed FROM raw.load_manifest "
         "WHERE load_id = %s",
         (result.load_id,),
     ).fetchone()
     assert manifest == ("2024", "release v5_11_0", 10**9)
+
+
+def test_parse_year_rejects_an_archive_without_port_coordinates() -> None:
+    old = {k: v for k, v in voyage().items() if not k.startswith(("start_l", "end_l"))}
+    body = parquet([old], 2024)
+
+    with pytest.raises(ClimateTraceError, match="reload the year"):
+        parse_year(body, 2024)

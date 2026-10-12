@@ -46,7 +46,7 @@ def no_retry_wait(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(http, "RETRY_WAIT", wait_none())
 
 
-def test_parse_bundle_types_values_and_records_the_vintage() -> None:
+def test_parse_bundle_types_values_and_records_the_version() -> None:
     parsed = parse_bundle(bundle(fixture_page()))
 
     first = dict(zip(TARGET.columns[1:], parsed.rows[0], strict=True))
@@ -55,7 +55,7 @@ def test_parse_bundle_types_values_and_records_the_vintage() -> None:
     assert first["portname"] == "Panama Canal"
     assert first["n_container"] == 7
     assert first["capacity"] == 1_088_424
-    assert parsed.source_vintage == f"data last edited {EDITED}"
+    assert parsed.source_version == f"data last edited {EDITED}"
 
 
 def test_parse_bundle_drops_rows_repeated_across_pages() -> None:
@@ -119,7 +119,7 @@ def test_load_year_archives_and_writes_the_partition(
     assert memory_archive.objects[archive_key("chokepoint2", 2023)] == body
     assert result.row_count == 3
     manifest = conn.execute(
-        "SELECT partition_key, source_vintage FROM raw.load_manifest WHERE load_id = %s",
+        "SELECT partition_key, source_version FROM raw.load_manifest WHERE load_id = %s",
         (result.load_id,),
     ).fetchone()
     assert manifest == ("chokepoint2:2023", f"data last edited {EDITED}")

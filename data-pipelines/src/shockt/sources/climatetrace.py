@@ -53,10 +53,18 @@ SOURCE_COLUMNS = (
     "other12",
     "original_inventory_sector",
 )
+COMPUTED_COLUMNS = (
+    ("start_lon", "ST_X(ST_STARTPOINT(location))"),
+    ("start_lat", "ST_Y(ST_STARTPOINT(location))"),
+    ("end_lon", "ST_X(ST_ENDPOINT(location))"),
+    ("end_lat", "ST_Y(ST_ENDPOINT(location))"),
+)
+"""Port coordinates from `location`, a two-point line from the start port to the end port."""
+RESULT_COLUMNS = (*SOURCE_COLUMNS, *(name for name, _ in COMPUTED_COLUMNS))
 TARGET = Target(
     dataset=DATASET,
     table="climatetrace_voyages",
-    columns=("load_id", *(c.lower() for c in SOURCE_COLUMNS)),
+    columns=("load_id", *(c.lower() for c in RESULT_COLUMNS)),
 )
 
 
@@ -92,7 +100,9 @@ class YearQuery:
 
 def year_query(config: ClimateTraceConfig, year: int) -> YearQuery:
     """Voyages starting in `year` from a configured origin country to a destination country."""
-    columns = ",\n  ".join(SOURCE_COLUMNS)
+    columns = ",\n  ".join(
+        (*SOURCE_COLUMNS, *(f"{expression} AS {name}" for name, expression in COMPUTED_COLUMNS))
+    )
     sql = (
         f"SELECT\n  {columns}\nFROM `{config.table}`\n"
         "WHERE start_date >= @start AND start_date < @end\n"
@@ -155,12 +165,15 @@ def parse_year(body: bytes, year: int) -> ParsedSource:
     metadata = json.loads(raw_metadata)
     if metadata["year"] != year:
         raise ClimateTraceError(f"archived file is for {metadata['year']}, not {year}")
-    missing = [c for c in SOURCE_COLUMNS if c not in table.column_names]
+    missing = [c for c in RESULT_COLUMNS if c not in table.column_names]
     if missing:
-        raise ClimateTraceError(f"result is missing columns {missing}")
+        raise ClimateTraceError(
+            f"result is missing columns {missing}; archives from before migration 0007 have no "
+            "port coordinates, so reload the year from BigQuery"
+        )
     rows: list[tuple[object, ...]] = []
     seen: set[tuple[object, object]] = set()
-    records = table.select(list(SOURCE_COLUMNS)).to_pylist()
+    records = table.select(list(RESULT_COLUMNS)).to_pylist()
     for record in records:
         start = record["start_date"]
         if not isinstance(start, datetime) or start.year != year:
@@ -171,11 +184,11 @@ def parse_year(body: bytes, year: int) -> ParsedSource:
         if key in seen:
             continue
         seen.add(key)
-        rows.append(tuple(record[c] for c in SOURCE_COLUMNS))
+        rows.append(tuple(record[c] for c in RESULT_COLUMNS))
     return ParsedSource(
         rows=rows,
         rows_received=len(records),
-        source_vintage=f"release {metadata['release']}",
+        source_version=f"release {metadata['release']}",
         bytes_processed=metadata.get("bytes_processed"),
     )
 

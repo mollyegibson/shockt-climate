@@ -138,7 +138,7 @@ def parse_bundle(bundle: bytes) -> ParsedSource:
     return ParsedSource(
         rows=rows,
         rows_received=len(rows),
-        source_vintage=f"data last edited {data['data_last_edited']}",
+        source_version=f"data last edited {data['data_last_edited']}",
     )
 
 

@@ -19,14 +19,15 @@ The short, citable form of what we hold each other to in review.
 ## Data
 
 9. **`raw` is never edited by hand.** Every change is a load recorded in `raw.load_manifest`, with its filters in `params` and its source file in the archive.
-10. **Migrations are append-only once applied.** A change to an applied migration goes in a new migration, with a sequential `--rev-id`. The database owner applies them.
+10. **No hand-entered data.** Every value in the database comes from a source through a loader, or from checked-in code (a dbt model or macro, or a `shockt ref` generator). Seeds are generated, never edited; declared choices live in `config/`. See CLAUDE.md, Data Provenance.
+11. **Migrations are append-only once applied.** A change to an applied migration goes in a new migration, with a sequential `--rev-id`. The database owner applies them.
 
 ## Configuration and secrets
 
-11. **Secrets live only in `.env` (gitignored) or a platform secret store.** Never in `config/`, code, docs, manifest params or logs. Type them as secrets (`SecretStr` in Python, `Redacted` in Effect).
-12. **Required configuration fails loudly when unset.** No plausible defaults for values that differ between environments or people.
+12. **Secrets live only in `.env` (gitignored) or a platform secret store.** Never in `config/`, code, docs, manifest params or logs. Type them as secrets (`SecretStr` in Python, `Redacted` in Effect).
+13. **Required configuration fails loudly when unset.** No plausible defaults for values that differ between environments or people.
 
 ## Quality
 
-13. **Never disable type checking or linting**: no `# noqa`, `# type: ignore`, `as any` or `as unknown as T`. Fix the code instead.
-14. **Tests and lint pass before a PR is opened.**
+14. **Never disable type checking or linting**: no `# noqa`, `# type: ignore`, `as any` or `as unknown as T`. Fix the code instead.
+15. **Tests and lint pass before a PR is opened.**

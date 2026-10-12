@@ -7,7 +7,7 @@ from tenacity import wait_none
 
 from shockt import http
 from shockt.archive import NeonArchive
-from shockt.config import CensusApiConfig, CensusRowFilter, HsCodesConfig, HsPrefix
+from shockt.config import CensusApiConfig, CensusRowFilter
 from shockt.settings import Settings
 from shockt.sources.census_api import DATASETS, CensusResponseError, fetch_bundle
 from tests.conftest import census_fixture
@@ -20,12 +20,6 @@ CONFIG = CensusApiConfig(
     comm_lvl={"hs": "HS10", "porths": "HS6", "statehs": "HS6"},
     timeout_seconds=10,
     filters={"hs": KEEP_ALL, "porths": KEEP_ALL, "statehs": KEEP_ALL},
-)
-HS_CODES = HsCodesConfig(
-    prefixes=[
-        HsPrefix(prefix="847150", level="HS6", label="servers", cases=[]),
-        HsPrefix(prefix="8504", level="HS4", label="transformers", cases=[]),
-    ]
 )
 
 
@@ -57,19 +51,27 @@ def test_get_error_message_never_contains_the_key() -> None:
 
 
 @respx.mock
-def test_fetch_bundle_requests_each_prefix_and_omits_the_key() -> None:
+def test_fetch_bundle_requests_one_prefix_and_omits_the_key() -> None:
     route = respx.get(f"{BASE}/hs").mock(
-        side_effect=[httpx.Response(200, json=census_fixture("hs")), httpx.Response(204)]
+        return_value=httpx.Response(200, json=census_fixture("hs"))
     )
     with httpx.Client() as client:
-        bundle = fetch_bundle(client, DATASETS["hs"], "2024-12", CONFIG, HS_CODES, KEY)
+        bundle = fetch_bundle(client, DATASETS["hs"], "2024-12", "847150", CONFIG, KEY)
 
-    requested = [call.request.url.params["I_COMMODITY"] for call in route.calls]
-    assert requested == ["847150*", "8504*"]
+    assert [call.request.url.params["I_COMMODITY"] for call in route.calls] == ["847150*"]
     assert KEY not in bundle.decode()
     data = json.loads(bundle)
-    assert [r["status"] for r in data["responses"]] == [200, 204]
-    assert data["responses"][1]["body"] is None
+    assert data["hs_prefix"] == "847150"
+    assert [r["status"] for r in data["responses"]] == [200]
+
+
+@respx.mock
+def test_fetch_bundle_keeps_an_empty_response() -> None:
+    respx.get(f"{BASE}/hs").mock(return_value=httpx.Response(204))
+    with httpx.Client() as client:
+        bundle = fetch_bundle(client, DATASETS["hs"], "2024-12", "8504", CONFIG, KEY)
+
+    assert json.loads(bundle)["responses"][0]["body"] is None
 
 
 @respx.mock
@@ -78,7 +80,7 @@ def test_fetch_bundle_reports_an_invalid_key_page() -> None:
         return_value=httpx.Response(200, text="<html><title>Invalid Key</title></html>")
     )
     with httpx.Client() as client, pytest.raises(CensusResponseError, match="Invalid Key"):
-        fetch_bundle(client, DATASETS["hs"], "2024-12", CONFIG, HS_CODES, KEY)
+        fetch_bundle(client, DATASETS["hs"], "2024-12", "847150", CONFIG, KEY)
 
 
 def test_neon_archive_ignores_the_shells_aws_profile(monkeypatch: pytest.MonkeyPatch) -> None:

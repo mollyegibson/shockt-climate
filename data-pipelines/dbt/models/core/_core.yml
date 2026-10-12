@@ -82,7 +82,7 @@ models:
                 field: census_cty_code
 
   - name: fct_imports_state_monthly
-    description: Imports by month, HS-6, country, state of destination and mode, with the state's group if any.
+    description: Imports by month, HS-6, country, state of destination and mode.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -96,11 +96,6 @@ models:
               arguments:
                 to: ref('dim_country')
                 field: census_cty_code
-      - name: state_group
-        data_tests:
-          - accepted_values:
-              arguments:
-                values: ["east_bound", "west_control", "ambiguous"]
 
   - name: ref_emission_factors
     description: >
@@ -175,3 +170,59 @@ models:
                 values: ["om", "gfw"]
               config:
                 severity: warn
+      - name: end_coast_region
+        description: From dim_climatetrace_ports, assigned from the arrival port's coordinates.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["west", "gulf", "east", "inland", "noncontiguous", "unknown"]
+      - name: origin_region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["asia", "mexico"]
+
+  - name: agg_voyage_lanes_monthly
+    description: >
+      Container-ship voyages by start month, origin country and US coast region: voyage count,
+      distance sailed, duration and CO2e. `co2e_t_per_km` is total CO2e over total distance.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "origin_iso3", "end_coast_region"]
+
+  - name: dim_climatetrace_ports
+    description: >
+      US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the
+      voyages' end points, the most common port name, the coast region from the `coast_region` macro,
+      and voyage counts (all ship types and container ships) for the loaded years and lanes.
+    columns:
+      - name: end_port_id
+        data_tests: [unique, not_null]
+      - name: coast_region
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["west", "gulf", "east", "inland", "noncontiguous", "unknown"]
+
+  - name: dim_census_air_ports
+    description: >
+      Census ports with air imports of the case HS codes, each placed at an OurAirports airport by a
+      scripted match: by airport name when the port name names an airport, else the nearest large
+      airport within `air_port_city_radius_km` of the port's GeoNames city, else the nearest
+      airport; a city GeoNames lacks is matched by airport municipality. Unmatched ports have null coordinates and are left out of the nodes;
+      `assert_air_ports_unmatched_share_within_limit` bounds their share of air tonnage.
+    columns:
+      - name: port_code
+        data_tests: [unique, not_null]
+      - name: air_weight_share
+        description: The port's share of case air tonnage over all loaded months.
+      - name: match_method
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["airport_name", "large_near_city", "nearest_to_city", "city_municipality", "unmatched"]
+      - name: city_to_airport_km
+        description: For city ports, the distance from the GeoNames city to the chosen airport.

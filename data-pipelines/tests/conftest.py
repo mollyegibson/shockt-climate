@@ -51,7 +51,6 @@ def migrated_database_url() -> str:
 
 @pytest.fixture
 def conn(migrated_database_url: str) -> Iterator[psycopg.Connection]:
-    with psycopg.connect(migrated_database_url) as connection:
+    with psycopg.connect(migrated_database_url, autocommit=True) as connection:
         connection.execute("TRUNCATE raw.load_manifest CASCADE")
-        connection.commit()
         yield connection

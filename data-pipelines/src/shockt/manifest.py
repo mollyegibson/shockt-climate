@@ -20,10 +20,10 @@ class LoadResult:
 
 @dataclass(frozen=True)
 class LoadSource:
-    """What a load was built from: its request parameters, vintage and archived file."""
+    """What a load was built from: its request parameters, version and archived file."""
 
     params: Mapping[str, object]
-    source_vintage: str | None
+    source_version: str | None
     object_key: str | None
     object_sha256: str | None
     bytes_processed: int | None = None
@@ -71,6 +71,18 @@ def archived_partitions(conn: psycopg.Connection, dataset: str) -> set[str]:
     return {row[0] for row in rows}
 
 
+def archived_source_version(conn: psycopg.Connection, object_key: str) -> str | None:
+    """The source version recorded by the load that archived `object_key`."""
+    row = conn.execute(
+        "SELECT source_version FROM raw.load_manifest "
+        "WHERE object_key = %s AND source_version IS NOT NULL "
+        "AND NOT params ? 'from_archive' "
+        "ORDER BY started_at DESC LIMIT 1",
+        (object_key,),
+    ).fetchone()
+    return row[0] if row else None
+
+
 def run_load(
     conn: psycopg.Connection,
     *,
@@ -85,6 +97,7 @@ def run_load(
     `write_rows` inserts the partition's rows tagged with the new load_id. If the partition
     already has a succeeded load, that load is marked superseded and its rows are deleted.
     """
+    _require_autocommit(conn)
     with conn.transaction():
         load_id = _insert_manifest(conn, dataset, partition_key, source, status="running")
         row_count = write_rows(conn, load_id)
@@ -121,6 +134,7 @@ def record_failure(
     error: str,
 ) -> UUID:
     """Record a failed load in its own transaction, after the load's transaction rolled back."""
+    _require_autocommit(conn)
     with conn.transaction():
         load_id = _insert_manifest(conn, dataset, partition_key, source, status="failed")
         conn.execute(
@@ -128,6 +142,13 @@ def record_failure(
             (error, load_id),
         )
     return load_id
+
+
+def _require_autocommit(conn: psycopg.Connection) -> None:
+    """Without autocommit, an earlier statement leaves a transaction open, `conn.transaction()`
+    becomes a savepoint inside it, and a later rollback discards loads reported as succeeded."""
+    if not conn.autocommit:
+        raise ValueError("Loads need an autocommit connection; use shockt.db.connect")
 
 
 def _insert_manifest(
@@ -140,14 +161,14 @@ def _insert_manifest(
 ) -> UUID:
     row = conn.execute(
         "INSERT INTO raw.load_manifest "
-        "(dataset, partition_key, params, source_vintage, status, object_key, object_sha256, "
+        "(dataset, partition_key, params, source_version, status, object_key, object_sha256, "
         "bytes_processed, code_version) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING load_id",
         (
             dataset,
             partition_key,
             Jsonb(dict(source.params)),
-            source.source_vintage,
+            source.source_version,
             status,
             source.object_key,
             source.object_sha256,

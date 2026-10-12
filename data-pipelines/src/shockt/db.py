@@ -7,8 +7,9 @@ from shockt.settings import Settings
 
 
 def connect(settings: Settings) -> psycopg.Connection:
-    """Connect as the ingest login (`DATABASE_URL`)."""
-    return psycopg.connect(settings.database_url.get_secret_value())
+    """Connect as the ingest login (`DATABASE_URL`), in autocommit mode so each load's
+    transaction block commits on its own."""
+    return psycopg.connect(settings.database_url.get_secret_value(), autocommit=True)
 
 
 def copy_rows(

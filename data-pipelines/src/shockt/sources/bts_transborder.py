@@ -147,7 +147,7 @@ def parse_zip(body: bytes, config: BtsTransborderConfig) -> ParsedSource:
     return ParsedSource(
         rows=rows,
         rows_received=received,
-        source_vintage=f"released {max(released).isoformat()}",
+        source_version=f"released {max(released).isoformat()}",
     )
 
 

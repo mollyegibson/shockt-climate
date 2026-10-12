@@ -34,8 +34,18 @@ census_state_port:
   # Census Schedule C codes starting with "5" cover Asia, including the Middle East and South Asia.
   country_code_prefixes: ["5"]
   country_codes: ["2010"] # Mexico
-  # The state filter and state groups come from this seed so the loader and core share one list.
-  state_groups_seed: dbt/seeds/seed_state_groups.csv
+  # Destination states loaded: the ones the case analyses look at. Every state doesn't fit in the
+  # free tier.
+  states:
+    - VA
+    - GA
+    - OH
+    - CA
+    - OR
+    - WA
+    - AZ
+    - TX
+    - IL
   drop_rows_without_air_or_vessel_weight: true
 
 bts_transborder:
@@ -73,3 +83,29 @@ emission_factors:
     url: https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx
     version: "2025"
     publication: https://www.epa.gov/climateleadership/ghg-emission-factors-hub
+
+census_schedules:
+  # Census reference lists of country codes (Schedule C) and districts and ports (Schedule D).
+  schedule_c_url: https://www.census.gov/foreign-trade/schedules/c/country.txt
+  schedule_d_url: https://www.census.gov/foreign-trade/schedules/d/distcode.html
+
+reference_sources:
+  # Reference datasets loaded into raw for placing nodes (plan section 6.2). Each is one
+  # `latest` partition; a reload replaces the previous snapshot.
+  ourairports:
+    url: https://davidmegginson.github.io/ourairports-data/airports.csv
+  geonames_cities:
+    url: https://download.geonames.org/export/dump/cities5000.zip
+    countries: [US, MX]
+  bts_border_crossings:
+    url: https://data.bts.gov/resource/keg4-3bc2.json
+    border: US-Mexico Border
+    page_size: 5000
+  census_import_concordance:
+    # One workbook per year, mapping each HS-10 import commodity to NAICS, SITC and end use.
+    url_template: https://www.census.gov/foreign-trade/reference/codes/concordance/impconcord{yy}.xlsx
+  denue:
+    # INEGI DENUE, manufacturing (SCIAN 31-33). Only establishments in industries the import
+    # concordance maps from the case HS codes are kept; SCIAN and NAICS agree at this many digits.
+    url: https://www.inegi.org.mx/contenidos/masiva/denue/denue_00_31-33_csv.zip
+    industry_digits: 5

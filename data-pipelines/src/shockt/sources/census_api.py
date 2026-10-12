@@ -1,13 +1,15 @@
 """Census International Trade API loader for the `hs`, `porths` and `statehs` import endpoints.
 
-One partition is one month of one endpoint. Each partition makes one request per case HS
-prefix, archives all responses as one JSON bundle, then parses the archived bundle into raw.
+One partition is one month of one case HS prefix of one endpoint, keyed `2025-03:847150`, so
+adding a case's HS codes loads only the new prefix. Each partition makes one request, archives
+the response as a JSON bundle, then parses the archived bundle into raw.
 """
 
 import json
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import Literal
 
 import httpx
@@ -15,7 +17,7 @@ import psycopg
 
 from shockt import http
 from shockt.archive import Archive, object_key
-from shockt.config import CensusApiConfig, CensusDataset, CensusRowFilter, HsCodesConfig
+from shockt.config import CensusApiConfig, CensusDataset, CensusRowFilter
 from shockt.loading import ParsedSource, Target, load_partition
 from shockt.manifest import LoadResult
 
@@ -69,6 +71,10 @@ class DatasetSpec:
     @property
     def columns(self) -> tuple[str, ...]:
         return ("load_id", *(f.column for f in (*self.requested, *self.predicates)))
+
+    @property
+    def target(self) -> Target:
+        return Target(dataset=self.manifest_dataset, table=self.table, columns=self.columns)
 
 
 DATASETS: dict[str, DatasetSpec] = {
@@ -160,38 +166,40 @@ def latest_month(client: httpx.Client, config: CensusApiConfig, api_key: str, si
     return max(row[time_index] for row in rows[1:])
 
 
+def partition_key(month: str, hs_prefix: str) -> str:
+    return f"{month}:{hs_prefix}"
+
+
 def fetch_bundle(
     client: httpx.Client,
     spec: DatasetSpec,
     month: str,
+    hs_prefix: str,
     config: CensusApiConfig,
-    hs_codes: HsCodesConfig,
     api_key: str,
 ) -> bytes:
-    """Request every case HS prefix for one month and return the responses as a JSON bundle."""
-    responses: list[dict[str, object]] = []
-    for prefix in hs_codes.prefixes:
-        params = {
-            "get": ",".join(f.api_name for f in spec.requested),
-            "time": month,
-            "COMM_LVL": config.comm_lvl[spec.endpoint],
-            "I_COMMODITY": f"{prefix.prefix}*",
-        }
-        response = http.get(
-            client,
-            f"{config.base_url}/{spec.endpoint}",
-            {**params, "key": api_key},
-            secrets=(api_key,),
-        )
-        responses.append(
-            {"params": params, "status": response.status_code, "body": _parse_json_rows(response)}
-        )
+    """Request one month of one case HS prefix and return the response as a JSON bundle."""
+    params = {
+        "get": ",".join(f.api_name for f in spec.requested),
+        "time": month,
+        "COMM_LVL": config.comm_lvl[spec.endpoint],
+        "I_COMMODITY": f"{hs_prefix}*",
+    }
+    response = http.get(
+        client,
+        f"{config.base_url}/{spec.endpoint}",
+        {**params, "key": api_key},
+        secrets=(api_key,),
+    )
     bundle = {
         "source": "census_international_trade_api",
         "endpoint": spec.endpoint,
         "month": month,
+        "hs_prefix": hs_prefix,
         "fetched_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "responses": responses,
+        "responses": [
+            {"params": params, "status": response.status_code, "body": _parse_json_rows(response)}
+        ],
     }
     return json.dumps(bundle, ensure_ascii=False).encode()
 
@@ -269,39 +277,47 @@ def load_month(
     archive: Archive,
     spec: DatasetSpec,
     month: str,
+    hs_prefix: str,
     fetch: Callable[[], bytes] | None,
     row_filter: CensusRowFilter,
 ) -> LoadResult:
-    """Load one month: fetch and archive the bundle (or reuse the archived one), then parse it.
+    """Load one month of one HS prefix: fetch and archive the bundle (or reuse the archived
+    one), then parse it.
 
     With `fetch=None`, the bundle is read from the archive instead of requested again. The
     manifest params record the filter applied and how many rows Census returned before it.
     """
-    params: dict[str, object] = {
-        "endpoint": spec.endpoint,
-        "month": month,
-        "filters": row_filter.model_dump(),
-    }
-
-    def parse(bundle: bytes) -> ParsedSource:
-        parsed = parse_bundle(spec, bundle, row_filter)
-        fetched_at = json.loads(bundle)["fetched_at"]
-        return ParsedSource(
-            rows=parsed.rows,
-            rows_received=parsed.rows_received,
-            source_vintage=f"fetched {fetched_at}",
-        )
-
+    key = partition_key(month, hs_prefix)
     return load_partition(
         conn,
         archive,
-        Target(dataset=spec.manifest_dataset, table=spec.table, columns=spec.columns),
-        month,
-        key=object_key(spec.manifest_dataset, month, BUNDLE_FILENAME),
+        spec.target,
+        key,
+        key=object_key(spec.manifest_dataset, key, BUNDLE_FILENAME),
         content_type="application/json",
-        params=params,
+        params=_params(spec, month, hs_prefix, row_filter),
         obtain=fetch,
-        parse=parse,
+        parse=partial(_parse_source, spec, row_filter=row_filter),
+    )
+
+
+def _params(
+    spec: DatasetSpec, month: str, hs_prefix: str, row_filter: CensusRowFilter
+) -> dict[str, object]:
+    return {
+        "endpoint": spec.endpoint,
+        "month": month,
+        "hs_prefix": hs_prefix,
+        "filters": row_filter.model_dump(),
+    }
+
+
+def _parse_source(spec: DatasetSpec, bundle: bytes, row_filter: CensusRowFilter) -> ParsedSource:
+    parsed = parse_bundle(spec, bundle, row_filter)
+    return ParsedSource(
+        rows=parsed.rows,
+        rows_received=parsed.rows_received,
+        source_version=f"fetched {json.loads(bundle)['fetched_at']}",
     )
 
 

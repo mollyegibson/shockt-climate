@@ -10,6 +10,12 @@ test-paths: ["tests"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
+vars:
+  # Largest share of case air tonnage allowed at Census ports with no matched airport.
+  air_port_max_unmatched_share: 0.01
+  # Radius around a Census port's city within which its large airport is chosen.
+  air_port_city_radius_km: 50
+
 models:
   shockt:
     staging:
@@ -28,14 +34,12 @@ seeds:
     +schema: raw
     +grants:
       select: ["shockt_analyst"]
-    seed_country_codes:
-      +column_types: {census_cty_code: text, cty_name: text, iso2: text, iso3: text, region: text, source: text}
-    seed_port_regions:
-      +column_types: {port_code: text, port_name: text, district_code: text, coast_region: text, source: text}
+    seed_census_countries:
+      +column_types: {census_cty_code: text, cty_name: text, iso2: text, iso3: text, source: text}
+    seed_census_ports:
+      +column_types: {port_code: text, port_name: text, district_code: text, source: text}
     seed_hs_case_codes:
       +column_types: {hs_prefix: text, level: text, label: text, cases: text, source: text}
-    seed_state_groups:
-      +column_types: {state: text, state_group: text, rationale: text, source: text}
     seed_emission_factors:
       +column_types:
         factor_id: text

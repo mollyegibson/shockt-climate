@@ -8,7 +8,8 @@ from shockt.sources.census_api import DATASETS, CensusResponseError, load_month
 from tests.conftest import MemoryArchive, census_fixture
 
 MONTH = "2024-12"
-KEY = "raw/census_porths/2024-12/responses.json"
+PREFIX = "847150"
+KEY = "raw/census_porths/2024-12:847150/responses.json"
 KEEP_ALL = CensusRowFilter(drop_country_groups=False, drop_all_zero=False)
 
 
@@ -43,7 +44,7 @@ def test_load_archives_then_writes_rows_and_manifest(
     expected = len(census_fixture("porths")) - 1
 
     result = load_month(
-        conn, memory_archive, spec, MONTH, lambda: bundle("porths"), row_filter=KEEP_ALL
+        conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), row_filter=KEEP_ALL
     )
 
     assert result.row_count == expected
@@ -57,11 +58,11 @@ def test_reloading_a_month_supersedes_the_earlier_load(
 ) -> None:
     spec = DATASETS["porths"]
     first = load_month(
-        conn, memory_archive, spec, MONTH, lambda: bundle("porths"), row_filter=KEEP_ALL
+        conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), row_filter=KEEP_ALL
     )
 
     second = load_month(
-        conn, memory_archive, spec, MONTH, lambda: bundle("porths"), row_filter=KEEP_ALL
+        conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), row_filter=KEEP_ALL
     )
 
     assert second.superseded_load_id == first.load_id
@@ -78,14 +79,20 @@ def test_a_failed_load_records_the_error_and_keeps_the_earlier_rows(
 ) -> None:
     spec = DATASETS["porths"]
     good = load_month(
-        conn, memory_archive, spec, MONTH, lambda: bundle("porths"), row_filter=KEEP_ALL
+        conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), row_filter=KEEP_ALL
     )
     broken = census_fixture("porths")
     broken[1][broken[0].index("AIR_WGT_MO")] = "not-a-number"
 
     with pytest.raises(CensusResponseError):
         load_month(
-            conn, memory_archive, spec, MONTH, lambda: bundle("porths", broken), row_filter=KEEP_ALL
+            conn,
+            memory_archive,
+            spec,
+            MONTH,
+            PREFIX,
+            lambda: bundle("porths", broken),
+            row_filter=KEEP_ALL,
         )
 
     assert row_count(conn, "census_porths") == good.row_count
@@ -100,9 +107,11 @@ def test_reparsing_from_the_archive_does_not_fetch(
     conn: psycopg.Connection, memory_archive: MemoryArchive
 ) -> None:
     spec = DATASETS["porths"]
-    load_month(conn, memory_archive, spec, MONTH, lambda: bundle("porths"), row_filter=KEEP_ALL)
+    load_month(
+        conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), row_filter=KEEP_ALL
+    )
 
-    result = load_month(conn, memory_archive, spec, MONTH, fetch=None, row_filter=KEEP_ALL)
+    result = load_month(conn, memory_archive, spec, MONTH, PREFIX, fetch=None, row_filter=KEEP_ALL)
 
     assert result.row_count == len(census_fixture("porths")) - 1
     params = conn.execute(
@@ -120,6 +129,7 @@ def test_every_endpoint_loads_its_fixture(
         memory_archive,
         DATASETS[endpoint],
         MONTH,
+        PREFIX,
         lambda: bundle(endpoint),
         row_filter=KEEP_ALL,
     )
@@ -143,7 +153,13 @@ def test_the_filter_drops_rows_and_is_recorded_in_the_manifest(
     )
 
     result = load_month(
-        conn, memory_archive, DATASETS["porths"], MONTH, lambda: bundle("porths"), asia_and_mexico
+        conn,
+        memory_archive,
+        DATASETS["porths"],
+        MONTH,
+        PREFIX,
+        lambda: bundle("porths"),
+        asia_and_mexico,
     )
 
     kept = conn.execute("SELECT cty_code, port FROM raw.census_porths ORDER BY 1, 2").fetchall()
@@ -160,3 +176,42 @@ def test_the_filter_drops_rows_and_is_recorded_in_the_manifest(
     assert params is not None
     assert params[0]["rows_received"] == len(census_fixture("porths")) - 1
     assert params[0]["filters"] == asia_and_mexico.model_dump()
+
+
+def test_each_partition_commits_even_after_an_earlier_read(
+    conn: psycopg.Connection, memory_archive: MemoryArchive, migrated_database_url: str
+) -> None:
+    spec = DATASETS["porths"]
+    conn.execute("SELECT 1")
+    load_month(conn, memory_archive, spec, MONTH, PREFIX, lambda: bundle("porths"), KEEP_ALL)
+    broken = census_fixture("porths")
+    broken[1][broken[0].index("AIR_WGT_MO")] = "not-a-number"
+
+    with pytest.raises(CensusResponseError):
+        load_month(
+            conn, memory_archive, spec, MONTH, "8504", lambda: bundle("porths", broken), KEEP_ALL
+        )
+
+    with psycopg.connect(migrated_database_url) as other:
+        statuses = other.execute(
+            "SELECT partition_key, status FROM raw.load_manifest ORDER BY partition_key"
+        ).fetchall()
+    assert statuses == [("2024-12:847150", "succeeded"), ("2024-12:8504", "failed")]
+
+
+def test_loads_refuse_a_connection_without_autocommit(
+    migrated_database_url: str, memory_archive: MemoryArchive
+) -> None:
+    with (
+        psycopg.connect(migrated_database_url) as plain,
+        pytest.raises(ValueError, match="autocommit"),
+    ):
+        load_month(
+            plain,
+            memory_archive,
+            DATASETS["porths"],
+            MONTH,
+            PREFIX,
+            lambda: bundle("porths"),
+            KEEP_ALL,
+        )

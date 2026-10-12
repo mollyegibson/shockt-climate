@@ -59,12 +59,14 @@ uv run alembic upgrade head --sql    # print the SQL without connecting
 ## Loading data
 
 Loaders connect as `shockt_ingest` (`DATABASE_URL`), archive each response in the bucket, then
-parse it into `raw`. Reloading a month replaces its earlier load.
+parse it into `raw`. Reloading a partition replaces its earlier load. A Census partition is one
+month of one HS prefix (`2025-03:847150`), so after adding HS codes to `config/hs_codes.yaml`,
+`--skip-existing` fetches only the new prefixes.
 
 ```sh
 uv run shockt ingest census --from 2022-01                  # all three endpoints, through the latest month
 uv run shockt ingest census -d hs --from 2024-12 --to 2024-12
-uv run shockt ingest census --from 2022-01 --skip-existing   # resume after a failure
+uv run shockt ingest census --from 2022-01 --skip-existing   # resume after a failure, or load new HS codes
 uv run shockt ingest census --from 2022-01 --from-archive    # re-parse archived responses, e.g. after a filter change
 uv run shockt loads list                                     # recent loads and raw table sizes
 ```
@@ -76,6 +78,18 @@ uv run shockt ingest bts-transborder                  # every month in data/manu
 uv run shockt ingest bts-transborder --skip-existing  # only months not loaded yet
 uv run shockt ingest bts-transborder --from-archive   # re-parse archived ZIPs, e.g. after a filter change
 ```
+
+Reference datasets used to place nodes (airports, cities, border crossings) are each one `latest` snapshot; a reload replaces it:
+
+```sh
+uv run shockt ingest ourairports            # airports with an IATA code
+uv run shockt ingest geonames-cities        # US and Mexican cities of 5,000+
+uv run shockt ingest bts-border-crossings   # US-Mexico ports of entry, monthly, with coordinates
+uv run shockt ingest census-concordance     # HS-10 → NAICS, one workbook per year (start year to now)
+uv run shockt ingest denue                  # Mexican manufacturers in the case industries; needs the concordance
+```
+
+DENUE keeps only establishments in the industries the import concordance maps from `config/hs_codes.yaml`. After changing HS codes, reload it without downloading again: `uv run shockt ingest denue --from-archive`.
 
 IMF PortWatch daily chokepoint transits come from a public API, one chokepoint-year per load. The current year is always reloaded, since PortWatch keeps adding days:
 
@@ -106,13 +120,15 @@ uv run shockt dbt build -s fct_imports_monthly    # any dbt command, e.g. one mo
 uv run shockt dbt test                            # tests only
 ```
 
-Seeds (reference CSVs) live in `dbt/seeds/` and load into `raw.seed_*`. `seed_emission_factors.csv` is generated from the official UK and EPA factor workbooks, which are archived in the bucket; regenerate it when either publishes a new edition:
+Seeds (reference CSVs) live in `dbt/seeds/` and load into `raw.seed_*`. **None is edited by hand**: each is written by a `shockt ref` command from config or an archived source (see `dbt/seeds/README.md`). Rules applied to them, such as coast and country regions, are dbt macros with tests.
 
 ```sh
-uv run shockt ref emission-factors
+uv run shockt ref config-seeds       # HS case codes, from config/
+uv run shockt ref census-schedules   # Census country and port lists
+uv run shockt ref emission-factors   # UK and EPA freight factors
 ```
 
- `seed_port_regions.csv` assigns each port a coast region by customs district; review it before relying on port-level results.
+Census ports get a coast region by customs district (`macros/census_regions.sql`); Climate TRACE arrival ports get one from their coordinates (`macros/coast_region.sql`). The district mapping needs a human review before relying on port-level Census results.
 
 ## Tests
 

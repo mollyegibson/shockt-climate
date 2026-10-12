@@ -76,7 +76,7 @@ def test_parse_zip_keeps_mexico_imports_in_the_configured_chapters() -> None:
     assert {r["source_table"] for r in rows} == {"dot2", "dot3"}
     assert all(r["trdtype"] == 2 and r["country"] == "2010" for r in rows)
     assert {r["commodity2"] for r in rows} == {"84", "85"}
-    assert parsed.source_vintage == "released 2024-03-15"
+    assert parsed.source_version == "released 2024-03-15"
 
 
 def test_parse_zip_types_values_and_maps_blank_cells_to_null() -> None:
