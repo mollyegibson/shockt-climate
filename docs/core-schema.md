@@ -64,6 +64,17 @@ erDiagram
     bigint value_usd
     numeric weight_t
     text weight_method
+    bigint charges_usd
+    uuid load_id
+  }
+  fct_import_duties_monthly {
+    date month PK
+    text hs10 PK, FK
+    text hs6
+    text census_cty_code PK, FK
+    bigint consumption_value_usd
+    bigint dutiable_value_usd
+    bigint calculated_duty_usd
     uuid load_id
   }
   fct_imports_port_monthly {
@@ -131,10 +142,12 @@ erDiagram
     uuid transborder_load_id
   }
   dim_country ||--o{ fct_imports_monthly : "census_cty_code"
+  dim_country ||--o{ fct_import_duties_monthly : "census_cty_code"
   dim_country ||--o{ fct_imports_port_monthly : "census_cty_code"
   dim_country ||--o{ fct_imports_state_monthly : "census_cty_code"
   dim_country ||--o{ fct_imports_state_port_quarterly : "census_cty_code"
   dim_hs ||--o{ fct_imports_monthly : "hs10"
+  dim_hs ||--o{ fct_import_duties_monthly : "hs10"
   dim_port ||--o{ fct_imports_port_monthly : "port_code"
   dim_port ||--o{ fct_imports_state_port_quarterly : "entry port"
   dim_port ||--o{ fct_imports_state_port_quarterly : "unlading port"
@@ -148,7 +161,8 @@ erDiagram
 - `dim_hs`: HS-10 codes seen in the country-level data, with the cases they belong to.
 - `dim_port`: Census Schedule D ports, each placed at a point (a US–Mexico crossing, a named airport, its GeoNames city or an airport in its municipality) and given a coast region by `coast_region`, the same rule as the Climate TRACE ports.
 - `dim_census_air_ports`: Census ports with air imports of the case HS codes, each placed at an OurAirports airport by a scripted match: by airport name when the port name names an airport, else the nearest large airport within `air_ports.city_radius_km` (config/transforms.yaml) of the port's GeoNames city, else the nearest airport; a city GeoNames lacks is matched by airport municipality.
-- `fct_imports_monthly`: Country-level imports by month, HS-10, country and mode.
+- `fct_imports_monthly`: Country-level imports by month, HS-10, country and mode, with Census's import charges (`charges_usd`: freight, insurance and other costs to the first US port; `other` is general minus air and vessel charges). Null for partitions loaded before charges were requested.
+- `fct_import_duties_monthly`: Duty on country-level imports for consumption by month, HS-10 and country: consumption value, dutiable value and Census's calculated duty. Duty isn't reported by mode.
 - `fct_imports_port_monthly`: Imports by month, HS-6, country, port of unlading and mode, with the port's coast region.
 - `fct_imports_state_monthly`: Imports by month, HS-6, country, state of destination and mode.
 - `fct_imports_state_port_quarterly`: Imports of all goods (no HS code) by quarter, state of destination, port of unlading, port of entry, country and mode (air and vessel only), from Census State/Port Imports, with the unlading port's coast region.

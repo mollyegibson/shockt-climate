@@ -1,6 +1,6 @@
 # Next Step: Cost Calculator
 
-**Status:** Future; not in the MVP. The charge and duty fields are verified and the loader change is specified (Section 3), but not built; on hold while the proposal is revisited · **Workstream:** Data engineering, engine · **Date:** 2026-10-13
+**Status:** Future; not in the MVP. Steps 1, 2 and 4 of Section 3 are built (2026-10-13); the reload (step 3) is next, and the engine (step 5) waits on the team · **Workstream:** Data engineering, engine · **Date:** 2026-10-13
 
 The MVP compares routes by emissions and transit time; freight cost is out of scope. A director deciding whether to fly or ship weighs cost against carbon, so a cost column would make the comparison more useful. This plan records what the sources already support, what they don't, and what adding it would take.
 
@@ -40,10 +40,10 @@ The MVP compares routes by emissions and transit time; freight cost is out of sc
 
 ## 3. What adding it would take
 
-1. **Migration `0015`:** add `gen_cha_mo`, `air_cha_mo`, `ves_cha_mo`, `cnt_cha_mo`, `dut_val_mo` and `cal_dut_mo` (all `bigint`, USD) to `raw.census_hs`. Rows loaded before the migration keep nulls until reloaded.
-2. **Loader:** add the six fields to the `hs` request in `census_api.py` (Section 5.1 of the [ingestion plan](./data-ingestion-pipelines.md)). The port and state requests don't change.
+1. **Built. Migration `0015`:** add `gen_cha_mo`, `air_cha_mo`, `ves_cha_mo`, `cnt_cha_mo`, `dut_val_mo` and `cal_dut_mo` (all `bigint`, USD) to `raw.census_hs`. Rows loaded before the migration keep nulls until reloaded.
+2. **Built. Loader:** add the six fields to the `hs` request in `census_api.py` (Section 5.1 of the [ingestion plan](./data-ingestion-pipelines.md)). The port and state requests don't change.
 3. **Reload** the `hs` endpoint from the API for the date range (`shockt ingest census -d hs`): the archived responses hold only the fields requested, so `--from-archive` can't add them. Each partition's new load supersedes the old one.
-4. **dbt:**
+4. **Built. dbt:**
    - `stg_census_hs` renames the fields to `general_charges_usd`, `air_charges_usd`, `vessel_charges_usd`, `containerized_charges_usd`, `dutiable_value_usd` and `calculated_duty_usd`;
    - `unpivot_modes` gains a `charges_usd` column for the relations that have charges, with `other` = general − air − vessel charges, so `fct_imports_monthly` carries charges per mode;
    - `fct_import_duties_monthly` (month × HS-10 × country): consumption value, dutiable value and calculated duty;

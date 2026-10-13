@@ -31,14 +31,17 @@ class Field:
     api_name: str
     column: str
     kind: FieldKind
+    optional: bool = False
+    """Read as null from a response without the column: responses archived before the field
+    was requested don't have it."""
 
 
 def _text(api_name: str) -> Field:
     return Field(api_name, api_name.lower(), "text")
 
 
-def _int(api_name: str) -> Field:
-    return Field(api_name, api_name.lower(), "int")
+def _int(api_name: str, optional: bool = False) -> Field:
+    return Field(api_name, api_name.lower(), "int", optional)
 
 
 _VALUE_FIELDS = (
@@ -50,6 +53,17 @@ _VALUE_FIELDS = (
     _int("CNT_VAL_MO"),
     _int("CNT_WGT_MO"),
 )
+
+
+_CHARGE_AND_DUTY_FIELDS = (
+    _int("GEN_CHA_MO", optional=True),
+    _int("AIR_CHA_MO", optional=True),
+    _int("VES_CHA_MO", optional=True),
+    _int("CNT_CHA_MO", optional=True),
+    _int("DUT_VAL_MO", optional=True),
+    _int("CAL_DUT_MO", optional=True),
+)
+"""Import charges by mode and duty, offered by the `hs` endpoint only."""
 
 
 @dataclass(frozen=True)
@@ -92,6 +106,7 @@ DATASETS: dict[str, DatasetSpec] = {
             _text("SUMMARY_LVL"),
             *_VALUE_FIELDS,
             _int("CON_VAL_MO"),
+            *_CHARGE_AND_DUTY_FIELDS,
             _int("GEN_QY1_MO"),
             _text("UNIT_QY1"),
             _int("GEN_QY2_MO"),
@@ -262,18 +277,25 @@ def parse_rows(spec: DatasetSpec, body: Sequence[Sequence[str]]) -> Iterator[tup
     """Convert one Census response (a header row then data rows) into typed tuples.
 
     Census appends the query predicates to every row, which repeats `I_COMMODITY`, so each
-    field is read from the first column with its name.
+    field is read from the first column with its name. An optional field missing from the
+    response is null in every row.
     """
     header = list(body[0])
     fields = (*spec.requested, *spec.predicates)
-    indexes: list[int] = []
+    indexes: list[int | None] = []
     for field in fields:
-        if field.api_name not in header:
+        if field.api_name in header:
+            indexes.append(header.index(field.api_name))
+        elif field.optional:
+            indexes.append(None)
+        else:
             raise CensusResponseError(f"{spec.endpoint}: response has no {field.api_name} column")
-        indexes.append(header.index(field.api_name))
     for line, raw in enumerate(body[1:], start=2):
         try:
-            yield tuple(_convert(raw[i], f.kind) for i, f in zip(indexes, fields, strict=True))
+            yield tuple(
+                None if i is None else _convert(raw[i], f.kind)
+                for i, f in zip(indexes, fields, strict=True)
+            )
         except ValueError as exc:
             raise CensusResponseError(f"{spec.endpoint}: row {line}: {exc}") from exc
 

@@ -11,7 +11,7 @@ from shockt.sources.census_api import (
     parse_bundle,
     parse_rows,
 )
-from tests.conftest import census_fixture
+from tests.conftest import FIXTURES, census_fixture
 
 
 @pytest.mark.parametrize("endpoint", ["hs", "porths", "statehs"])
@@ -37,6 +37,39 @@ def test_parse_rows_types_values_and_reads_first_i_commodity() -> None:
     assert taiwan["unit_qy1"] == "NO"
     assert taiwan["last_update"] == "0"
     assert taiwan["time"] == "2024-12"
+
+
+def test_parse_rows_reads_charges_and_duty() -> None:
+    spec = DATASETS["hs"]
+    body = json.loads((FIXTURES / "census_hs_2024-12_charges.json").read_text())
+    columns = spec.columns[1:]
+    mexico = dict(zip(columns, list(parse_rows(spec, body))[1], strict=True))
+
+    assert mexico["cty_code"] == "2010"
+    assert mexico["gen_cha_mo"] == 1_024_110
+    assert mexico["air_cha_mo"] == 261_870
+    assert mexico["ves_cha_mo"] == 1_390
+    assert mexico["cnt_cha_mo"] == 776
+    assert mexico["dut_val_mo"] == 0
+    assert mexico["cal_dut_mo"] == 0
+
+
+def test_parse_rows_reads_missing_charge_and_duty_fields_as_null() -> None:
+    """Responses archived before the charge and duty fields were requested don't have them."""
+    spec = DATASETS["hs"]
+    columns = spec.columns[1:]
+    taiwan = dict(zip(columns, next(parse_rows(spec, census_fixture("hs"))), strict=True))
+
+    assert taiwan["air_wgt_mo"] == 4_333_280
+    for column in (
+        "gen_cha_mo",
+        "air_cha_mo",
+        "ves_cha_mo",
+        "cnt_cha_mo",
+        "dut_val_mo",
+        "cal_dut_mo",
+    ):
+        assert taiwan[column] is None
 
 
 def test_parse_rows_takes_comm_lvl_from_the_appended_predicate() -> None:

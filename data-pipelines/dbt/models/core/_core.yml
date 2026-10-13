@@ -48,7 +48,9 @@ models:
   - name: fct_imports_monthly
     description: >
       Country-level imports by month, HS-10, country and mode. Weight is reported by Census for air and
-      vessel only; `other` (overland for Mexico and Canada) has value but no weight.
+      vessel only; `other` (overland for Mexico and Canada) has value but no weight. `charges_usd` is
+      Census's import charges (freight, insurance and other costs to the first US port; for overland
+      imports from the point of origin), null for partitions loaded before charges were requested.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -56,6 +58,30 @@ models:
     columns:
       - name: mode
         data_tests: [*modes]
+      - name: hs10
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_hs')
+                field: hs10
+      - name: census_cty_code
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: census_cty_code
+
+  - name: fct_import_duties_monthly
+    description: >
+      Duty on country-level imports for consumption by month, HS-10 and country: consumption value,
+      dutiable value and Census's calculated duty. Duty isn't reported by mode. Null for partitions
+      loaded before the duty fields were requested. `assert_census_charges_and_duty_reconcile` checks
+      that dutiable value is within consumption value.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs10", "census_cty_code"]
+    columns:
       - name: hs10
         data_tests:
           - relationships:

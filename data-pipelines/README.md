@@ -206,6 +206,13 @@ erDiagram
     text census_cty_code PK, FK
     text mode PK
     numeric weight_t
+    bigint charges_usd
+  }
+  fct_import_duties_monthly {
+    date month PK
+    text hs10 PK, FK
+    text census_cty_code PK, FK
+    bigint calculated_duty_usd
   }
   fct_imports_port_monthly {
     date month PK
@@ -279,6 +286,8 @@ erDiagram
 
   dim_hs ||--o{ fct_imports_monthly : "hs10"
   dim_country ||--o{ fct_imports_monthly : "census_cty_code"
+  dim_hs ||--o{ fct_import_duties_monthly : "hs10"
+  dim_country ||--o{ fct_import_duties_monthly : "census_cty_code"
   dim_country ||--o{ fct_imports_port_monthly : "census_cty_code"
   dim_port ||--o{ fct_imports_port_monthly : "port_code"
   dim_country ||--o{ fct_imports_state_monthly : "census_cty_code"
