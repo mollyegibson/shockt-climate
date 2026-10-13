@@ -231,6 +231,11 @@ class OverlandWeightConfig(ConfigModel):
         return self
 
 
+class MexicoSitesConfig(ConfigModel):
+    min_employees: int = Field(gt=0)
+    """Smallest DENUE employee band, by its lower bound, whose establishments are assembly sites."""
+
+
 class TransformsConfig(ConfigModel):
     """Settings the dbt models read; `shockt build` passes them to dbt as vars."""
 
@@ -238,6 +243,7 @@ class TransformsConfig(ConfigModel):
     census_ports: CensusPortsConfig
     climatetrace: ClimateTraceTransformsConfig
     overland_weight: OverlandWeightConfig
+    mexico_sites: MexicoSitesConfig
 
 
 class HsPrefix(ConfigModel):

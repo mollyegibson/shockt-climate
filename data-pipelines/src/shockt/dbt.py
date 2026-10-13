@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from dbt.cli.main import dbtRunner
 
-from shockt.config import origins_config, transforms_config
+from shockt.config import origins_config, sources_config, transforms_config
 from shockt.settings import PROJECT_ROOT, Settings
 
 DBT_DIR = PROJECT_ROOT / "dbt"
@@ -28,11 +28,17 @@ def connection_env(settings: Settings) -> dict[str, str]:
 
 
 def vars_args(args: list[str]) -> list[str]:
-    """`--vars` with `config/transforms.yaml` and the regions of `config/origins.yaml`, the only
-    places dbt vars are set."""
+    """`--vars` with `config/transforms.yaml`, the regions of `config/origins.yaml` and the DENUE
+    industry match of `config/sources.yaml`, the only places dbt vars are set."""
     if "--vars" in args:
         raise ValueError("dbt vars come from config/; don't pass --vars")
-    dbt_vars = {**transforms_config().model_dump(), "origins": origins_config().model_dump()}
+    dbt_vars = {
+        **transforms_config().model_dump(),
+        "origins": origins_config().model_dump(),
+        "denue": sources_config().reference_sources.denue.model_dump(
+            include={"industry_digits", "cases"}
+        ),
+    }
     return ["--vars", json.dumps(dbt_vars)]
 
 

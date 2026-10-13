@@ -349,3 +349,82 @@ models:
                 values: ["airport_name", "large_near_city", "nearest_to_city", "city_municipality", "unmatched"]
       - name: city_to_airport_km
         description: For city ports, the distance from the GeoNames city to the chosen airport.
+
+  - name: dim_departure_ports
+    description: >
+      Climate TRACE start ports in the origin countries that container ships sailed from to the US,
+      each at the median start point of its voyages.
+    columns:
+      - name: start_port_id
+        data_tests: [unique, not_null]
+      - name: iso3
+        data_tests: [not_null]
+
+  - name: dim_departure_airports
+    description: >
+      Airports in the origin countries that flew freight to the US in BTS T-100, placed by IATA code
+      and country with OurAirports.
+    columns:
+      - name: iata_code
+        data_tests: [unique, not_null]
+      - name: iso3
+        data_tests: [not_null]
+
+  - name: dim_mexico_plants
+    description: >
+      DENUE establishments in the case industries whose employee band starts at or above
+      `mexico_sites.min_employees`, one per industry and location.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["lat", "lon", "scian_code"]
+    columns:
+      - name: plant_id
+        data_tests: [unique, not_null]
+
+  - name: map_crossing_plant
+    description: >
+      The nearest large plant, by great-circle distance, for each border crossing and HS-6 code with
+      overland imports, among codes whose industries DENUE covers. `assert_nearest_plant_rules` pins
+      known crossings.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["port_code", "hs6"]
+    columns:
+      - name: plant_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_mexico_plants')
+                field: plant_id
+
+  - name: dim_destination_states
+    description: US states of destination with case imports, at the population-weighted centre of their GeoNames cities.
+    columns:
+      - name: state
+        data_tests: [unique, not_null]
+      - name: lat
+        data_tests: [not_null]
+      - name: lon
+        data_tests: [not_null]
+
+  - name: dim_nodes
+    description: >
+      Every place a leg starts or ends: departure ports and airports, US arrival seaports, air
+      gateways and border crossings, Mexican plants and US destination states. `node_id` is the kind
+      and the key in the source it came from.
+    columns:
+      - name: node_id
+        data_tests: [unique, not_null]
+      - name: kind
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["departure_port", "departure_airport", "arrival_seaport", "air_gateway", "border_crossing", "mexico_plant", "destination_state"]
+      - name: lat
+        data_tests: [not_null]
+      - name: lon
+        data_tests: [not_null]

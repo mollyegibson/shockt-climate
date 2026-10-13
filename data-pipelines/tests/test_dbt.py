@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from shockt.config import origins_config, transforms_config
+from shockt.config import origins_config, sources_config, transforms_config
 from shockt.dbt import connection_env, vars_args
 from shockt.settings import Settings
 
@@ -40,13 +40,15 @@ def test_connection_env_requires_the_url() -> None:
         connection_env(settings_with(None))
 
 
-def test_vars_args_pass_transforms_and_origins_as_dbt_vars() -> None:
+def test_vars_args_pass_transforms_origins_and_the_denue_match_as_dbt_vars() -> None:
     args = vars_args(["build"])
+    denue = sources_config().reference_sources.denue
 
     assert args[0] == "--vars"
     assert json.loads(args[1]) == {
         **transforms_config().model_dump(),
         "origins": origins_config().model_dump(),
+        "denue": {"industry_digits": denue.industry_digits, "cases": denue.cases},
     }
 
 

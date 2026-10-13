@@ -19,6 +19,7 @@ The agreed vocabulary for ShockT Climate. If a term is here, code and docs spell
 |---|---|
 | **Lane** | An origin-to-destination route, e.g. TW-US, Asia → US East Coast. |
 | **Leg** | One mode-specific segment of a lane, door to door. A lane's emissions are the sum of its legs. |
+| **Node** | A place a leg starts or ends: a departure port or airport, a US arrival seaport, air gateway or border crossing, a Mexican plant or a US destination state. `core.dim_nodes` has one row per node, keyed `kind:source_key`. |
 | **Cell** | A slice of tonnage by origin × US port region × mode. |
 | **Coast region** | The region of a US port, from its coordinates by the `coast_region` rule: `east`, `west`, `gulf`, `inland` (the Great Lakes and the contiguous interior), `noncontiguous`, `other` (no rule matches), `unknown` (no coordinates). Whether a port is a land border crossing is separate (`is_border_crossing`). The calculator's port regions are East, West and Gulf. |
 | **Mode** | `air`, `vessel` (with `vessel_containerized` as a subset), `other` (general imports value minus air and vessel; overland for Mexico and Canada, no Census weight), and later `truck` and `rail` from BTS TransBorder. |

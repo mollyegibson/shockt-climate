@@ -619,22 +619,37 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 
 **Why two sources:** the EPA Hub reflects the US truck and rail fleet, and its rail factor is well below the UK's. The EPA has no ocean container or international air factors, which the UK set has, with size classes and radiative-forcing variants.
 
-**Which factor a leg uses** is a rule in the engine, with a test that every factor it names exists exactly once in `core.ref_emission_factors` with a well-to-wheel value:
+**Which factor a leg uses** is a declared choice, so it lives in `config/transforms.yaml` as named settings, not as the sources' labels:
 
-| Leg | Factor (`source`, `variant`) |
-|---|---|
-| Ocean, any lane | `uk_desnz`, `Cargo ship / Container ship / Average` |
-| Air, any lane | `uk_desnz`, `Freight flights / International, to/from non-UK / With RF`; the method page shows `… / Without RF` alongside |
-| Truck, in the US or Mexico | `epa_hub`, `Medium- and Heavy-Duty Truck` |
-| Rail, in the US or Mexico | `epa_hub`, `Rail` |
-| Any other leg | an error, so a new leg type needs a decision before it gets a number |
+```yaml
+leg_factors:
+  ocean:
+    source: uk_desnz
+    vehicle_type: container_ship
+    size_class: average
+  air:
+    source: uk_desnz
+    vehicle_type: freight_flight
+    haul: international
+    radiative_forcing: true
+  truck:
+    source: epa_hub
+    vehicle_type: medium_heavy_duty_truck
+  rail:
+    source: epa_hub
+    vehicle_type: rail
+```
 
+- **Structured columns (planned):** `core.ref_emission_factors` gains `vehicle_type`, `size_class`, `haul` and `radiative_forcing`, set from the source labels by a tested macro (for example UK `Cargo ship / Container ship / Average` → `container_ship`, `average`; `Freight flights / International, to/from non-UK / With RF` → `freight_flight`, `international`, with radiative forcing). The macro names every label it knows; a dbt test fails if a freight row gets no `vehicle_type`, so a new label in a future workbook needs a decision. The joined `variant` label stays for display.
+- **Validation:** the config model checks each value against the vocabulary (`container_ship`, `international` and so on), so a typo fails when config loads. A dbt test checks that each mode's settings match exactly one factor with a well-to-wheel value.
+- **Lookup:** the engine takes each leg's mode, picks the one factor matching its settings, and fails if none or several match. A leg in a mode with no settings is an error, so a new leg type needs a decision before it gets a number.
+- **The current choices:** ocean, the UK container-ship average; air, the UK international factor with radiative forcing (the method page shows it without alongside); truck, the EPA medium- and heavy-duty truck; rail, the EPA rail factor. Changing one, such as dropping radiative forcing, is a one-word config edit.
 - **Ocean legs use the container-ship average.** The UK factors vary about threefold by ship size class (container capacity in TEU), and no source we load gives a ship's TEU, so every ocean leg uses the fleet average.
 - **Licences:** UK factors under the Open Government Licence (attribution required); EPA factors are US government works in the public domain.
 
 ### 6.2 Nodes
 
-**Planned; `dim_nodes` isn't built yet.** Its inputs are loaded and modeled: `dim_climatetrace_ports`, `dim_census_air_ports`, the BTS crossings, DENUE and GeoNames. Nodes are the places that distances are measured between. They will be built by a dbt model, `dim_nodes`, from loaded data, not declared. It includes every node that carries case freight, with a volume weight, so lane distances can be volume-weighted averages and the long tail contributes little. When HS codes or cases change, the nodes and weights change with them.
+**Built (locations); weights planned.** Nodes are the places that distances are measured between, built by dbt from loaded data, not declared. One model per kind places them (`dim_departure_ports`, `dim_departure_airports`, `dim_mexico_plants` with `map_crossing_plant`, `dim_destination_states`, and the existing `dim_port` and `dim_census_air_ports`), and `dim_nodes` combines them with `node_id` = kind and source key (e.g. `arrival_seaport:2704`, `departure_airport:TPE`). Checked against the loaded data on 2026-10-13: 541 nodes, 100 departure ports, 108 departure airports, 52 arrival seaports, 104 air gateways, 19 crossings, 7 plants and 51 states. The weights (`fct_node_weights_monthly`) are next. It includes every node that carries case freight, with a volume weight, so lane distances can be volume-weighted averages and the long tail contributes little. When HS codes or cases change, the nodes and weights change with them.
 
 | Kind | Which nodes | Coordinates | Weight |
 |---|---|---|---|
@@ -643,8 +658,8 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 | US air gateways | Every Census port with air imports of the case HS codes | OurAirports airports in the US and its territories (Schedule C's `1000` and `9` block, from `seed_census_countries`) of the types in `air_ports.airport_types`, with scheduled service if `air_ports.scheduled_service_only` (`config/transforms.yaml`), by a scripted match in `dim_census_air_ports`: by airport name when the port name names an airport, else the nearest large airport within `air_ports.city_radius_km` of the port's GeoNames city, in any state. Unmatched ports are dropped; a dbt test fails if they carry more than `air_ports.max_unmatched_share` of air tonnage. All these settings are in `config/transforms.yaml` | Air tonnage |
 | Asian and Mexican departure airports | Every airport in an origin country with freight to the US in BTS T-100 International Segment (`raw.bts_t100_segments`, Section 5.8) | OurAirports, by IATA code | The airport's share of its country's freight to the US that month, all goods |
 | Mexico–US border crossings | Every crossing with overland imports of the case codes in `fct_mexico_overland_monthly` | BTS Border Crossing Entry Data, by Census port code (`dim_port`) | Estimated truck and rail tonnage of the case codes (`fct_mexico_overland_monthly`) |
-| Mexican assembly sites | For each Mexico–US border crossing and HS-6 code it carries, the **nearest large plant** by great-circle distance: DENUE establishments in the code's industries (its HS-10 codes → NAICS via the Census concordance → DENUE industries matched at 5 digits, for the cases in `reference_sources.denue.cases`) whose employee-size band starts at or above a configured minimum (planned: `mexico_sites.min_employees` in `config/transforms.yaml`). Establishments at the same coordinates count once. A crossing and code with no large plant fails a dbt test rather than getting a default | DENUE coordinates | None of their own: the leg from the plant to the crossing carries the crossing's tonnage of the code (`fct_mexico_overland_monthly`) |
-| US destination states | Every state with case imports in `census_statehs` | Population-weighted centroid of the state's GeoNames cities | Case tonnage by state **per origin country and mode**, not pooled across them: air and vessel weight as Census reports it; overland (`other`) weight estimated as value × kg per dollar by the rule `fct_mexico_overland_monthly` uses, applied per origin: the origin's own air and vessel kg per dollar for the code when those shipments reach `overland_weight.min_air_vessel_value_usd`, else the all-origins ratio; the low–high range always from the all-origins percentiles (`agg_air_vessel_kg_per_usd`). Tonnage in the unidentified state `XX` has no destination node; a dbt test fails if its share of a lane's tonnage exceeds a configured limit (planned, `config/transforms.yaml`) |
+| Mexican assembly sites | For each Mexico–US border crossing and HS-6 code it carries, the **nearest large plant** by great-circle distance: DENUE establishments in the code's industries (its HS-10 codes → NAICS via the Census concordance → DENUE industries matched at 5 digits, for the cases in `reference_sources.denue.cases`) whose employee-size band starts at or above `mexico_sites.min_employees` (`config/transforms.yaml`, 251), read by the `employee_band_min` macro. Establishments at the same industry and coordinates count once. A crossing and code with no large plant gets no Mexican leg, and a warning lists it (`warn_crossings_without_a_plant`) | DENUE coordinates | None of their own: the leg from the plant to the crossing carries the crossing's tonnage of the code (`fct_mexico_overland_monthly`) |
+| US destination states | Every state with case imports in `census_statehs` | Population-weighted centroid of the state's GeoNames cities | Case tonnage by state **per origin country and mode**, not pooled across them: air and vessel weight as Census reports it; overland (`other`) weight estimated as value × kg per dollar by the rule `fct_mexico_overland_monthly` uses, applied per origin: the origin's own air and vessel kg per dollar for the code when those shipments reach `overland_weight.min_air_vessel_value_usd`, else the all-origins ratio; the low–high range always from the all-origins percentiles (`agg_air_vessel_kg_per_usd`). Tonnage in the unidentified state `XX` has no destination node and is left out, with a warning |
 
 - **Destination limits:** state of destination is where the importer says the goods are going, which can be an integrator or distributor rather than a data center (Texas's share of Mexico's servers may partly be distributors near the border), and a state's population centroid is not its data-center market (Virginia's is not at Ashburn). Against a cross-country inland leg the error is modest, and it applies equally to the baseline and to a shock.
 - **Overland isn't only Mexico:** Asian goods that enter over a land border (through Canada or Mexico) are `other` too: $1.44B of the case codes since 2022, Taiwan $0.83B of it, against Mexico's $290.0B. The per-origin ratio covers them.
@@ -662,7 +677,7 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 
 ### 6.3 Distances
 
-**Planned.** Observed sea distances come from Climate TRACE's distance sailed: for each origin country and Census arrival port, the typical distance of the container voyages from that country whose end point lies within a configured radius of the port (planned, `config/transforms.yaml`; 98.4% of case vessel tonnage is at ports with such voyages within 50 km). Counterfactual sea distances (Panama or the Red Sea closed) come from `searoute`, a Python library, so they're computed outside dbt for every observed port pair and each scenario, and written to a seed by `shockt ref sea-distances`. Air distances (`shockt ref air-distances`) between air nodes are geodesic distances on the WGS84 ellipsoid from `geographiclib`, with no uplift, because the UK air factors already include one (open question 12). Origin airports are the T-100 departure airports (Sections 5.8 and 6.2).
+**Planned.** Observed sea distances come from Climate TRACE's distance sailed: for each origin country and Census arrival port, the typical distance of the container voyages from that country whose end point lies within a configured radius of the port (`arrival_ports.voyage_radius_km`, planned in `config/transforms.yaml`: 50 km, within which 98.4% of case vessel tonnage has voyages). A port with no such voyage falls back to the `searoute` open-route distance from the origin's departure ports, and a column records which source each distance came from. Counterfactual sea distances (Panama or the Red Sea closed) come from `searoute`, a Python library, so they're computed outside dbt for every observed port pair and each scenario, and written to a seed by `shockt ref sea-distances`. Air distances (`shockt ref air-distances`) between air nodes are geodesic distances on the WGS84 ellipsoid from `geographiclib`, with no uplift, because the UK air factors already include one (open question 12). Origin airports are the T-100 departure airports (Sections 5.8 and 6.2).
 
 `shockt ref sea-distances` uses `searoute` (tested at 1.6.0), which supports closing passages through `restrictions`. Kaohsiung → Savannah, for example, measures:
 - 19,813 km with all passages open
@@ -779,7 +794,7 @@ total_co2e_t float, co2e_t_per_km float
 -- core.ref_emission_factors        every UK and EPA freight factor per tonne-km (Section 6.1)
 ```
 
-**Built:** `dim_country`, `dim_port`, `dim_hs`, `dim_census_air_ports`, `dim_climatetrace_ports`; `fct_imports_monthly`, `fct_imports_port_monthly`, `fct_imports_state_monthly`, `fct_imports_state_port_quarterly`, `fct_mexico_overland_monthly`, `agg_air_vessel_kg_per_usd`; `fct_chokepoint_transits_daily` and `_monthly`; `fct_voyages`, `agg_voyage_lanes_monthly`; `ref_emission_factors`. Every Census fact unpivots air, vessel, containerized vessel and `other` (general imports value minus air and vessel value; overland for Mexico and Canada) with the `unpivot_modes` macro, except `fct_imports_state_port_quarterly`, which keeps no `other` (Section 5.4), and drops rows with neither value nor weight; `weight_method` is `reported` wherever Census gives a weight.
+**Built:** `dim_country`, `dim_port`, `dim_hs`, `dim_census_air_ports`, `dim_climatetrace_ports`; the node locations `dim_departure_ports`, `dim_departure_airports`, `dim_mexico_plants`, `map_crossing_plant`, `dim_destination_states` and `dim_nodes` (Section 6.2); `fct_imports_monthly`, `fct_imports_port_monthly`, `fct_imports_state_monthly`, `fct_imports_state_port_quarterly`, `fct_mexico_overland_monthly`, `agg_air_vessel_kg_per_usd`; `fct_chokepoint_transits_daily` and `_monthly`; `fct_voyages`, `agg_voyage_lanes_monthly`; `ref_emission_factors`. Every Census fact unpivots air, vessel, containerized vessel and `other` (general imports value minus air and vessel value; overland for Mexico and Canada) with the `unpivot_modes` macro, except `fct_imports_state_port_quarterly`, which keeps no `other` (Section 5.4), and drops rows with neither value nor weight; `weight_method` is `reported` wherever Census gives a weight.
 
 **Planned:**
 
@@ -813,7 +828,7 @@ For each month × HS-6 × crossing, the overland value is split into `truck` and
 - **Coverage:** `assert_census_ports_located` and `assert_air_ports_unmatched_share_within_limit` bound the tonnage at ports that can't be placed; `assert_contradicting_end_points_within_limit` bounds the Climate TRACE container voyages excluded for an end point that contradicts their end port; `assert_no_case_ports_in_other_region` and `assert_no_container_ports_in_other_region` fail when a port matches no coast rule.
 - **Reconciliation:** per month × HS-6 × country, air and vessel weight summed over ports (a warning) and over states (an error; it matched exactly on 2026-10-12) is within 1% or 1 tonne of `fct_imports_monthly`, for the configured origins. Overland (`other`) value summed over states matches the same value summed over ports within 1% or $1 (`assert_state_overland_value_reconciles_with_ports`, an error; exact on 2026-10-12): value, not estimated tonnage, since both sides would use the same ratio.
 
-**Planned:** with `dim_nodes`, bounds on case tonnage at origins with no departure port (vessel) or no departure airport (air), a bound on case vessel tonnage at Census ports with no container voyage ending within the radius, a bound on the share of each code's Mexican overland value that `fct_mexico_overland_monthly` leaves out because it entered at a port other than a US–Mexico crossing, and a bound on the unidentified state `XX` (every limit in `config/transforms.yaml`); `vessel_containerized` weight ≤ `vessel` weight; a freshness warning when a core table's newest month is more than 4 months old.
+**Planned:** with `dim_nodes`, warnings, not errors, that list what has no node and is left out of the weights: origins with case vessel tonnage but no departure port, or case air tonnage but no departure airport; Mexican overland value that `fct_mexico_overland_monthly` leaves out because it entered at a port other than a US–Mexico crossing; and tonnage in the unidentified state `XX`. Each lane's distance is a weighted average over the nodes it has, so a small gap changes nothing; a lane the engine needs with no distance is an error in the engine, the same as a leg type with no factor. Also planned: `vessel_containerized` weight ≤ `vessel` weight; a freshness warning when a core table's newest month is more than 4 months old.
 
 ## 8. Storage budget (Neon free tier)
 
@@ -906,7 +921,7 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 5. **Done.** PortWatch (5.6).
 6. **Done.** Spike 4, the BTS TransBorder loader (5.5) and `fct_mexico_overland_monthly` (Section 7.3).
 7. **Done.** Spike 5, then Climate TRACE voyages (5.7), `fct_voyages` and `agg_voyage_lanes_monthly`.
-8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Built, not yet loaded:** the T-100 loader (5.8, migration `0014`). **Planned:** `dim_nodes` (6.2) and the sea, air, road and rail distance generators (6.3).
+8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Built, not yet loaded:** the T-100 loader (5.8, migration `0014`). **Built, not yet run on Neon:** the node locations and `dim_nodes` (6.2). **Planned:** the node weights, then the sea, air, road and rail distance generators (6.3).
 9. **Done (2026-10-12).** A full load into Neon: migrations `0011`–`0013` applied (`0013` drops the leftover `raw.seed_emission_factors`), the six Case 2 HS-6 codes loaded and the HS-4 loads retired, `VACUUM FULL` on the three Census tables to return the retired rows' space, Climate TRACE reloaded for the 42-country origins, the factor workbooks and DENUE loaded, `shockt build`, then a storage check against Section 8.
 
 ## 11. Testing
