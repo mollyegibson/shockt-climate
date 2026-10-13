@@ -94,7 +94,8 @@ models:
   - name: fct_imports_state_port_quarterly
     description: >
       Imports of all goods (no HS code) by quarter, state of destination, port of unlading, port of
-      entry, country and mode, from Census State/Port Imports, with the unlading port's coast region.
+      entry, country and mode (air and vessel only), from Census State/Port Imports, with the
+      unlading port's coast region. No `other` mode: the load drops rows without air or vessel weight.
       Supports the Case 2 inland-routing check: the share of vessel imports bound for a state that
       was unladen on the West Coast.
     data_tests:
@@ -103,7 +104,10 @@ models:
             combination_of_columns: ["quarter", "state", "unlading_port_code", "entry_port_code", "census_cty_code", "mode"]
     columns:
       - name: mode
-        data_tests: [*modes]
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["air", "vessel", "vessel_containerized"]
       - name: unlading_port_code
         data_tests:
           - relationships:

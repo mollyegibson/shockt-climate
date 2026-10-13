@@ -17,7 +17,7 @@ from shockt.config import (
     sources_config,
     transforms_config,
 )
-from shockt.origins import COUNTRIES_SEED, OriginsError, origin_iso3
+from shockt.origins import COUNTRIES_SEED, OriginsError, origin_iso2, origin_iso3
 
 
 def test_the_committed_config_files_load() -> None:
@@ -142,3 +142,11 @@ def test_overland_range_percentiles_must_be_ordered_within_zero_and_one() -> Non
         OverlandWeightConfig(min_air_vessel_value_usd=1, range_percentiles=[0.95, 0.05])
     with pytest.raises(ValidationError, match="two values"):
         OverlandWeightConfig(min_air_vessel_value_usd=1, range_percentiles=[0.05, 0.5, 0.95])
+
+
+def test_origin_iso2_comes_from_the_schedule_c_seed() -> None:
+    iso2 = origin_iso2(ORIGINS)
+
+    assert {"CN", "TW", "MX"} <= set(iso2)
+    assert "DE" not in iso2
+    assert iso2 == sorted(iso2)

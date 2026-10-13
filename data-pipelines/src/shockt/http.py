@@ -42,7 +42,13 @@ def make_client(timeout_seconds: float) -> httpx.Client:
     )
 
 
-def _get(client: httpx.Client, url: str, params: Mapping[str, str]) -> httpx.Response:
+def _send(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    params: Mapping[str, str] | None = None,
+    data: Mapping[str, str] | None = None,
+) -> httpx.Response:
     for attempt in Retrying(
         retry=retry_if_exception(_is_retryable),
         wait=RETRY_WAIT,
@@ -50,7 +56,8 @@ def _get(client: httpx.Client, url: str, params: Mapping[str, str]) -> httpx.Res
         reraise=True,
     ):
         with attempt:
-            response = client.get(url, params=params)
+            # Empty params would replace a query string already in the URL.
+            response = client.request(method, url, params=params or None, data=data)
             response.raise_for_status()
             return response
     raise AssertionError("unreachable: Retrying either returns or re-raises")
@@ -64,6 +71,14 @@ def get(
 ) -> httpx.Response:
     """GET with retries on transport errors, 429 and 5xx; errors are re-raised without secrets."""
     try:
-        return _get(client, url, params)
+        return _send(client, "GET", url, params=params)
     except httpx.HTTPError as exc:
         raise SourceRequestError(redact(f"{type(exc).__name__}: {exc}", secrets)) from None
+
+
+def post_form(client: httpx.Client, url: str, data: Mapping[str, str]) -> httpx.Response:
+    """POST a form with the same retries as `get`."""
+    try:
+        return _send(client, "POST", url, data=data)
+    except httpx.HTTPError as exc:
+        raise SourceRequestError(f"{type(exc).__name__}: {exc}") from None

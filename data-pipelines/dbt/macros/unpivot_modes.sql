@@ -1,16 +1,23 @@
 {#-
   Turns one staging row with air, vessel and containerized vessel columns into one row per mode.
   `other` is general imports value minus air and vessel value (overland for Mexico and Canada);
-  Census reports no weight for it. Rows with neither value nor weight are dropped.
+  Census reports no weight for it. `modes` limits the output to some of them. Rows with neither
+  value nor weight are dropped.
 -#}
-{% macro unpivot_modes(relation, keys) %}
+{% macro unpivot_modes(relation, keys, modes=none) %}
+{% set columns = {
+    'air': ('air_value_usd', 'air_weight_kg'),
+    'vessel': ('vessel_value_usd', 'vessel_weight_kg'),
+    'vessel_containerized': ('containerized_value_usd', 'containerized_weight_kg'),
+    'other': ('general_value_usd - air_value_usd - vessel_value_usd', 'null::bigint'),
+} %}
+{% set selected = modes if modes is not none else columns.keys() | list %}
+{% for mode in selected if mode not in columns %}
+    {{ exceptions.raise_compiler_error("unpivot_modes: unknown mode '" ~ mode ~ "'") }}
+{% endfor %}
 with modes as (
-    {% for mode, value_col, weight_col in [
-        ('air', 'air_value_usd', 'air_weight_kg'),
-        ('vessel', 'vessel_value_usd', 'vessel_weight_kg'),
-        ('vessel_containerized', 'containerized_value_usd', 'containerized_weight_kg'),
-        ('other', 'general_value_usd - air_value_usd - vessel_value_usd', 'null::bigint'),
-    ] %}
+    {% for mode in selected %}
+    {% set value_col, weight_col = columns[mode] %}
     select
         {{ keys | join(', ') }},
         '{{ mode }}'::text as mode,

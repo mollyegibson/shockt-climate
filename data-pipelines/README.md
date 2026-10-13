@@ -114,6 +114,14 @@ uv run shockt ingest census-state-port --skip-existing     # only quarters not y
 uv run shockt ingest census-state-port --from-archive      # re-parse archived ZIPs, e.g. after a filter change
 ```
 
+BTS T-100 International Segment gives air freight by origin airport, for all goods, one year per load. TranStats has no file download for it, so the loader fills in its download form; a year the form doesn't offer yet is reported and skipped. The filter (origin countries, segments that carried freight) is in `config/sources.yaml`:
+
+```sh
+uv run shockt ingest bts-t100                     # every year in date_range
+uv run shockt ingest bts-t100 --skip-existing     # only finished years not loaded for the same months and filters
+uv run shockt ingest bts-t100 --from-archive      # re-parse archived ZIPs, e.g. after a filter change
+```
+
 Rows dropped while loading (country groups, all-zero rows, and for the port and state
 endpoints, countries outside the origins in `config/origins.yaml`) are set in `config/sources.yaml`
 and recorded in each load's manifest `params`.

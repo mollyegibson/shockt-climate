@@ -16,10 +16,11 @@ from shockt.db import connect
 from shockt.http import make_client
 from shockt.loading import ParsedSource, Target
 from shockt.months import MonthRange
-from shockt.origins import origin_iso3
+from shockt.origins import origin_iso2, origin_iso3
 from shockt.reference import census_schedules, config_seeds
 from shockt.settings import PROJECT_ROOT, get_settings
 from shockt.sources import (
+    bts_t100,
     bts_transborder,
     census_api,
     census_concordance,
@@ -275,6 +276,65 @@ def ingest_portwatch(
                     f"{portwatch.DATASET} {key}: "
                     f"{result.row_count:,} days in {time.monotonic() - started:.1f}s{note}"
                 )
+
+
+@ingest_app.command("bts-t100")
+def ingest_bts_t100(
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
+    skip_existing: Annotated[
+        bool,
+        typer.Option(
+            help="Skip years already loaded for the same months and origins. "
+            "The current year is always reloaded."
+        ),
+    ] = False,
+    from_archive: Annotated[
+        bool, typer.Option(help="Re-parse archived ZIPs instead of using the download form.")
+    ] = False,
+) -> None:
+    """Load BTS T-100 International Segment freight from the origin countries, one year at a
+    time."""
+    settings = get_settings()
+    config = sources_config()
+    t100 = config.bts_t100
+    months = _month_range(start, end)
+    open_end = (end or config.date_range.end_month) is None
+    origins = origin_iso2(origins_config()) if t100.origins_only else None
+    archive = NeonArchive(settings)
+    with make_client(timeout_seconds=600) as client, connect(settings) as conn:
+        done = manifest.succeeded_params(conn, bts_t100.DATASET) if skip_existing else {}
+        archived = manifest.archived_partitions(conn, bts_t100.DATASET) if from_archive else set()
+        for year in months.years():
+            key = bts_t100.partition_key(year)
+            filters = {
+                "drop_rows_without_freight": t100.drop_rows_without_freight,
+                "origin_countries": origins,
+            }
+            if _already_loaded(done.get(key), months.in_year(year), filters=filters):
+                typer.echo(f"{bts_t100.DATASET} {key}: skipped (already loaded)")
+                continue
+            if from_archive and key not in archived:
+                typer.echo(f"{bts_t100.DATASET} {key}: skipped (not archived)")
+                continue
+            started = time.monotonic()
+            fetch: Callable[[], bytes] | None = None
+            if not from_archive:
+                body = bts_t100.fetch_year(client, t100, year)
+                if body is None:
+                    if open_end:
+                        typer.echo(f"{bts_t100.DATASET} {key}: not published yet")
+                        break
+                    raise typer.BadParameter(f"{year} is inside --to but T-100 doesn't offer it")
+                fetch = partial(bytes, body)
+            result = bts_t100.load_year(
+                conn, archive, t100, origins, year, months.in_year(year), fetch
+            )
+            note = " (replaced earlier load)" if result.superseded_load_id else ""
+            typer.echo(
+                f"{bts_t100.DATASET} {key}: {result.row_count:,} segments kept "
+                f"in {time.monotonic() - started:.1f}s{note}"
+            )
 
 
 @ingest_app.command("climatetrace-voyages")

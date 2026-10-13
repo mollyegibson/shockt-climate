@@ -44,6 +44,13 @@ bts_transborder:
   manual_dir: data/manual/bts
   tables: [dot2, dot3]
 
+bts_t100:
+  # T-100 International Segment (All Carriers): nonstop flight segments to and from the US, by US
+  # and foreign carriers. The download form returns one year per request.
+  form_url: https://www.transtats.bts.gov/DL_SelectFields.aspx?gnoyr_VQ=FJE&QO_fu146_anzr=Nv4+Pn44vr45
+  origins_only: true # origin airports in countries in config/origins.yaml
+  drop_rows_without_freight: true # passenger- or mail-only segments
+
 portwatch:
   query_url: https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query
   # PortWatch IDs; names come from the source. The page size is read from the layer's metadata.

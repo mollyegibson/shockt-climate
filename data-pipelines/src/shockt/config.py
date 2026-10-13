@@ -108,6 +108,14 @@ class CensusStatePortConfig(ConfigModel):
     drop_rows_without_air_or_vessel_weight: bool
 
 
+class BtsT100Config(ConfigModel):
+    form_url: str
+    """TranStats download form for T-100 International Segment (All Carriers)."""
+    origins_only: bool
+    """Keep only segments from airports in countries in `config/origins.yaml`."""
+    drop_rows_without_freight: bool
+
+
 class PortwatchConfig(ConfigModel):
     query_url: str
     chokepoints: list[str]
@@ -178,6 +186,7 @@ class SourcesConfig(ConfigModel):
     census_api: CensusApiConfig
     census_state_port: CensusStatePortConfig
     bts_transborder: BtsTransborderConfig
+    bts_t100: BtsT100Config
     portwatch: PortwatchConfig
     climatetrace: ClimateTraceConfig
     census_schedules: CensusSchedulesConfig

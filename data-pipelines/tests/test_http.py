@@ -40,6 +40,29 @@ def test_get_retries_server_errors_then_succeeds() -> None:
 
 
 @respx.mock
+def test_get_without_params_keeps_the_urls_query_string() -> None:
+    route = respx.get(f"{BASE}/form", params={"table": "FJE"}).mock(
+        return_value=httpx.Response(200)
+    )
+    with httpx.Client() as client:
+        http.get(client, f"{BASE}/form?table=FJE", {})
+
+    assert route.called
+
+
+@respx.mock
+def test_post_form_retries_server_errors_then_succeeds() -> None:
+    route = respx.post(f"{BASE}/form").mock(
+        side_effect=[httpx.Response(502), httpx.Response(200, content=b"PK")]
+    )
+    with httpx.Client() as client:
+        response = http.post_form(client, f"{BASE}/form", {"cboYear": "2024"})
+
+    assert response.content == b"PK"
+    assert route.call_count == 2
+
+
+@respx.mock
 def test_get_error_message_never_contains_the_key() -> None:
     respx.get(f"{BASE}/hs").mock(return_value=httpx.Response(404))
     with httpx.Client() as client, pytest.raises(http.SourceRequestError) as raised:
