@@ -231,6 +231,12 @@ class OverlandWeightConfig(ConfigModel):
         return self
 
 
+class ArrivalPortsConfig(ConfigModel):
+    voyage_radius_km: float = Field(gt=0)
+    """Distance from a Census port of unlading within which a container voyage's end point counts
+    toward that port's observed sea distance."""
+
+
 class MexicoSitesConfig(ConfigModel):
     min_employees: int = Field(gt=0)
     """Smallest DENUE employee band, by its lower bound, whose establishments are assembly sites."""
@@ -244,6 +250,7 @@ class TransformsConfig(ConfigModel):
     climatetrace: ClimateTraceTransformsConfig
     overland_weight: OverlandWeightConfig
     mexico_sites: MexicoSitesConfig
+    arrival_ports: ArrivalPortsConfig
 
 
 class HsPrefix(ConfigModel):

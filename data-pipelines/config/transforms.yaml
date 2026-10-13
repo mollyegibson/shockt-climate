@@ -36,3 +36,8 @@ mexico_sites:
   # DENUE establishments whose employee band starts at or above this are assembly sites; each
   # border crossing's Mexican leg starts at its nearest one (251 is DENUE's largest band).
   min_employees: 251
+
+arrival_ports:
+  # A container voyage counts toward a Census port's observed sea distance when it ends within this
+  # distance of the port's point. Census ports sit at their city, often 25-40 km from the terminals.
+  voyage_radius_km: 50

@@ -428,3 +428,45 @@ models:
         data_tests: [not_null]
       - name: lon
         data_tests: [not_null]
+
+  - name: fct_node_weights_monthly
+    description: >
+      Case tonnage each node carries by month, origin country, HS-6 and mode, with a low–high range
+      where the tonnage is estimated. Departure-port rows are split by the lane's US coast region
+      (`lane_coast_region`); other rows leave it null. `assert_departure_weights_reconcile` checks
+      that splits keep their totals.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "node_id", "census_cty_code", "hs6", "mode", "lane_coast_region"]
+    columns:
+      - name: node_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_nodes')
+                field: node_id
+      - name: weight_t
+        data_tests: [not_null]
+      - name: weight_basis
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["voyage_share_region", "voyage_share_country", "t100_share", "reported", "estimated_value_ratio", "estimated_own_ratio", "estimated_all_origins_ratio"]
+
+  - name: agg_observed_sea_distances_monthly
+    description: >
+      Observed sea distance by month, origin country and US arrival seaport, from container voyages
+      ending within `arrival_ports.voyage_radius_km` of the port.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "origin_iso3", "arrival_node_id"]
+    columns:
+      - name: arrival_node_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_nodes')
+                field: node_id

@@ -10,7 +10,8 @@ still crossed by truck or rail.
 
 Weight is value × kg per dollar of the code's air and vessel shipments: Mexico's own when its
 shipments reach the minimum, else all origins'. The range uses the value-weighted percentiles of the
-ratio across origins that reach the minimum (`agg_air_vessel_kg_per_usd`).
+ratio across origins that reach the minimum (`agg_air_vessel_kg_per_usd`), widened to include the
+estimate when Mexico's own ratio falls outside them.
 */
 with mexico as (
     select census_cty_code
@@ -111,8 +112,8 @@ ratios as (
         codes.hs6,
         coalesce(own.kg_per_usd, all_origins.kg_per_usd) as kg_per_usd,
         case when own.kg_per_usd is not null then 'origin' else 'all_origins' end as ratio_source,
-        all_origins.kg_per_usd_low,
-        all_origins.kg_per_usd_high
+        least(coalesce(own.kg_per_usd, all_origins.kg_per_usd), all_origins.kg_per_usd_low) as kg_per_usd_low,
+        greatest(coalesce(own.kg_per_usd, all_origins.kg_per_usd), all_origins.kg_per_usd_high) as kg_per_usd_high
     from (select distinct hs6 from overland) as codes
     left join {{ ref('agg_air_vessel_kg_per_usd') }} as own
         on own.hs6 = codes.hs6
