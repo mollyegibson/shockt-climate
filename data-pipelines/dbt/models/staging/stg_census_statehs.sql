@@ -1,4 +1,4 @@
--- Imports by state of destination at HS-6, detail rows only (no country groups or totals).
+-- Imports by state of destination at HS-6, detail rows only (no country groups, world totals or all-states totals).
 select
     to_date(s.time, 'YYYY-MM') as month,
     s.i_commodity as hs6,
@@ -17,3 +17,4 @@ from {{ source('raw', 'census_statehs') }} as s
 where s.load_id in ({{ current_census_loads('census_statehs') }})
     and s.summary_lvl = 'DET'
     and s.cty_code <> '-'
+    and s.state <> '-'
