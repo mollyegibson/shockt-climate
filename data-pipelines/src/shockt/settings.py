@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     neon_s3_region: str = "us-east-2"
     archive_bucket: str = "shockt-raw-archive"
     census_api_key: SecretStr | None = None
+    ors_api_key: SecretStr | None = None
     gcp_project_id: str | None = None
     bq_max_bytes: int = Field(default=100_000_000_000, gt=0)
 

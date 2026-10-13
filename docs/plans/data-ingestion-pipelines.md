@@ -18,6 +18,7 @@ This plan covers getting source data into the `raw` and `core` layers of the Sho
 | Refresh | Load once for the MVP. Each load records its source version in `raw.load_manifest`. |
 | Adding cases | Adding HS codes to `config/hs_codes.yaml` and rerunning the loaders and `shockt build` regenerates everything downstream. Census loads are partitioned by month × HS prefix, so a new prefix fetches only that prefix. Staging reads only loads whose prefix is in the config, so a removed prefix drops out of `core` at the next build; `shockt loads retire` then deletes its rows from `raw` (the archive keeps its files). No prefix may start with another, so no row is loaded twice. |
 | Nodes | **Planned.** Built by a dbt model (`dim_nodes`) from loaded data, including **every** port, airport, crossing and assembly site that carries case freight, weighted by volume; no top-N cutoff (Section 6.2). |
+| Distances | **Planned.** Measured, never estimated with a detour factor: sea from Climate TRACE distance sailed and `searoute` for closed passages; road by the openrouteservice `driving-hgv` matrix; rail by shortest track on the BTS North American Rail Network; air per open question 12 (Section 6.3). |
 | HS level | HS-10 from the `hs` endpoint; the port and state endpoints serve HS-6 at most (spike 1). `core` models at HS-6 and keeps HS-10 as a column where it exists. |
 | Case codes | Set in `config/hs_codes.yaml`: HS-6 847150 (servers) for both cases; for Case 2's heavy electrical gear, liquid-dielectric transformers (850421, 850422, 850423), larger dry transformers (850433, 850434) and switchgear above 1,000 V (853720). Census's description of each code is in `core.dim_hs`. |
 | Date range | `date_range` in `config/sources.yaml`: January 2022 through the latest month available at load time. Every loader honors both ends: monthly sources request only those months, and year-partitioned sources (PortWatch, Climate TRACE) archive the whole year and load only the rows inside the range. The resolved range is recorded per load. |
@@ -222,7 +223,7 @@ shockt build                                         # dbt deps (first run) and 
 shockt dbt <command> …                               # any dbt command, with the config vars
 ```
 
-Planned: `shockt ref sea-distances` and `shockt ref air-distances` (Section 6.3).
+Planned: `shockt ref sea-distances`, `shockt ref air-distances`, `shockt ref road-distances` and `shockt ref rail-distances` (Section 6.3).
 
 `--from` and `--to` default to `date_range` in `config/sources.yaml`. When the end month is unset there too, it resolves to the latest month the source has published, and the resolved value is stored in the manifest. `shockt build` and `shockt dbt` pass `config/transforms.yaml` and the regions of `config/origins.yaml` to dbt as vars; `dbt_project.yml` defines none, so running dbt without them fails.
 
@@ -549,6 +550,8 @@ Reference data reaches the database in two ways, both reproducible from the repo
 | `seed_census_countries` | `shockt ref census-schedules` | Census Schedule C; ISO3 via `pycountry`, and for Census-specific ISO2 codes, `census_schedules.iso3_overrides` in `config/sources.yaml` (Gaza Strip and West Bank → PSE). A Census code with neither, such as Kosovo, has no ISO3 | `census_cty_code, cty_name, iso2, iso3, source` |
 | `seed_census_ports` | `shockt ref census-schedules` | Census Schedule D | `port_code, port_name, district_code, source` |
 | `seed_sea_distances`, `seed_air_distances` | planned (Section 6.3) | `dim_nodes` port pairs and `searoute` | |
+| `seed_road_distances` | planned: `shockt ref road-distances` (Section 6.3) | `dim_nodes` road pairs and an archived openrouteservice matrix response | |
+| `seed_rail_distances` | planned: `shockt ref rail-distances` (Section 6.3) | `dim_nodes` rail pairs and the archived BTS North American Rail Network Lines | |
 
 Rules applied to reference data live in dbt macros or models, each with a test pinning it to known cases.
 
@@ -596,11 +599,12 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 | US arrival seaports | Every Climate TRACE end port | Median voyage end point (`dim_climatetrace_ports`) | Container voyages |
 | US air gateways | Every Census port with air imports of the case HS codes | OurAirports airports in the US and its territories (Schedule C's `1000` and `9` block, from `seed_census_countries`) of the types in `air_ports.airport_types`, with scheduled service if `air_ports.scheduled_service_only` (`config/transforms.yaml`), by a scripted match in `dim_census_air_ports`: by airport name when the port name names an airport, else the nearest large airport within `air_ports.city_radius_km` of the port's GeoNames city, in any state. Unmatched ports are dropped; a dbt test fails if they carry more than `air_ports.max_unmatched_share` of air tonnage. All these settings are in `config/transforms.yaml` | Air tonnage |
 | Mexico–US border crossings | Every crossing with overland imports of the case codes in `fct_mexico_overland_monthly` | BTS Border Crossing Entry Data, by Census port code (`dim_port`) | Estimated truck and rail tonnage of the case codes (`fct_mexico_overland_monthly`) |
-| Mexican assembly sites | Every DENUE establishment in an industry that makes the case products: the HS-10 codes of the cases in `reference_sources.denue.cases` → NAICS (Census concordance) → DENUE industries matched at 5 digits | DENUE coordinates | Employee-size band, converted to a number by a rule in code (open question 11) |
+| Mexican assembly sites | DENUE establishments in an industry that makes the case products (the HS-10 codes of the cases in `reference_sources.denue.cases` → NAICS via the Census concordance → DENUE industries matched at 5 digits) whose employee-size band starts at or above a configured minimum (planned: `mexico_sites.min_employees` in `config/transforms.yaml`). Each site is assigned to its nearest Mexico–US border crossing node by great-circle distance; a crossing no site is assigned to takes its nearest site | DENUE coordinates | None of their own: a crossing's Mexican leg is the unweighted mean road distance from its assigned sites, and the leg carries the crossing's tonnage |
 | US destination states | Every state with case imports in `census_statehs` | Population-weighted centroid of the state's GeoNames cities | Case air and vessel tonnage by state (`fct_imports_state_monthly`) |
 
 - **Destination limits:** state of destination is where the importer says the goods are going, which can be an integrator or distributor rather than a data center, and a state's population centroid is not its data-center market (Virginia's is not at Ashburn). Against a cross-country inland leg the error is modest, and it applies equally to the baseline and to a shock.
 - **Airport match limits:** OurAirports has no traffic figures, so a city port gets the large airport nearest the city centre, which is not always the cargo gateway (Chicago gets Midway, not O'Hare; Dallas/Fort Worth gets Love Field). Within the match radius the difference is small against an air leg.
+- **Crossing-anchored Mexican legs:** the tonnage of the Mexican leg is measured where it crosses (`fct_mexico_overland_monthly`), and DENUE only says where the goods plausibly start. Weighting sites by employees was rejected: headcount is not output, and the bands are wide. The band minimum keeps the large plants that dominate assembly; the rule that reads a band's lower bound from its label (`"251 y más personas"` → 251) is a function in code with a test.
 - **DENUE caveats:** it records establishments, not their products or customers; a computer plant may not make servers. Only Case 1's codes select industries (847150 → NAICS 33411, computer and peripheral equipment manufacturing), which keeps out industries the Case 2 headings brought in, such as ceramics through 8504.
 - **Industry level:** DENUE's SCIAN and the concordance's NAICS are matched at 5 digits (`industry_digits`), the industry level at which the US, Canada and Mexico agreed a comparable classification; manufacturing isn't among the exceptions ([2022 NAICS Manual](https://www.census.gov/naics/reference_files_tools/2022_NAICS_Manual.pdf); [Statistics Canada, three-country comparability](https://www.statcan.gc.ca/en/subjects/standard/manual2002)).
 - **DENUE load filter:** only the HS prefixes of the cases in `reference_sources.denue.cases` (Case 1, whose route runs through Mexican assembly) select industries. The loader reads those industries from `raw.census_import_concordance` (every loaded year) and records them in the manifest `params`, so the concordance loads first. After an HS code change, `shockt ingest denue --from-archive` re-filters the archived ZIP.
@@ -615,6 +619,17 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 - 26,021 km with Panama and Bab el-Mandeb closed
 
 Each run writes the `searoute` version into every row.
+
+**Road and rail distances are measured on networks**, not estimated from straight-line distance with a detour (circuity) factor:
+
+- **Road: `shockt ref road-distances`** sends the road node pairs (Mexican sites → crossings; crossings, seaports and air gateways → destination states) to the [openrouteservice](https://openrouteservice.org) matrix endpoint with the `driving-hgv` (heavy goods vehicle) profile, archives each JSON response and writes `seed_road_distances` from the archived copy. Distances are along the route the profile finds fastest, and are kept for each direction, since one-way roads make them differ (Laredo crossing → Norfolk 2,733.7 km, back 2,743.4 km, measured 2026-10-12).
+  - **Version:** every response carries `metadata.engine` (`version`, `graph_date`, `osm_date`); the load records them as its source version, and each seed row carries `osm_date`. A rerun on a newer graph is a new recorded version, like a Census revision.
+  - **Key and quota:** `ORS_API_KEY` in `.env`, read through `Settings`. The live quota is in the response headers (`x-ratelimit-limit`, `x-ratelimit-remaining`); the generator stops with an error when it would exceed what remains rather than retrying. One matrix request takes every location for one batch of pairs.
+  - **Licence:** routes are built from OpenStreetMap data under the ODbL; each response's `metadata.attribution` ("openrouteservice.org | OpenStreetMap contributors") is shown wherever the distances are.
+  - **Why hosted:** the OSRM demo server forbids building distance tables, and self-hosting a router for a network spanning Mexico and the US needs a North America extract (14.5 GB) and tens of GB of memory to build. Pointing the generator at a self-hosted router later changes only its endpoint.
+- **Rail: `shockt ref rail-distances`** archives the BTS [North American Rail Network Lines](https://catalog.data.gov/dataset/north-american-rail-network-lines) (US, Mexico and Canada; a US government work), builds a graph of its segments with lengths in metres, snaps each rail node to the nearest network vertex and writes the shortest-track distance per pair to `seed_rail_distances`.
+  - **Limit:** shortest track is not necessarily the route a railroad runs; accepted for the MVP.
+  - **Checks:** the generator fails when a node snaps farther than a configured distance from the network or when a pair has no connecting path, rather than writing a fallback.
 
 ## 7. `core` schema (dbt)
 
@@ -792,9 +807,10 @@ Each spike is a short task with a written result, completed before the pipeline 
 | 8 | Is Neon Object Storage generally available or in preview? The docs don't say. | Archive | **Answered:** generally available since September 17, 2026, after a public beta from [July 15, 2026](https://neon.com/blog/neon-backend-is-beta). |
 | 9 | Should Case 2 include water chillers (HS 8418.69), a large part of data-center cooling? | `config/hs_codes.yaml` | **Open; left out for now.** At HS-10 the country-level data separates chillers (8418.69.0140–0160, and possibly some of 0180), but the port and state endpoints stop at HS-6, where 8418.69 also holds ice makers, drinking-water coolers and beverage dispensers. To decide: load 841869 and measure the chillers' share of its tonnage at HS-10; include it only if chillers dominate. |
 | 10 | What source gives product weights (kg per unit) to estimate overland tonnage? | 7.3 | **Answered: none needed.** Overland tonnage is estimated from value with the code's kg per dollar in Census air and vessel shipments, with a low–high range across origins (Section 7.3). A query on 2026-10-12 found weight per dollar nearly constant across origins for servers and spread about 4–7 times for the Case 2 gear. |
-| 11 | How does a DENUE employee-size band (e.g. "6 a 10 personas") become a weight for an assembly site? | 6.2 | **Open; needed before `dim_nodes`.** For example the band's midpoint, with the open top band at its lower bound; a rule in code with a test. |
+| 11 | How does a DENUE employee-size band (e.g. "6 a 10 personas") become a weight for an assembly site? | 6.2 | **Answered: it doesn't.** Sites carry no weight; a band minimum selects the large sites, each crossing's Mexican leg runs from the sites assigned to it, and the crossing's measured tonnage weights the leg (Section 6.2). |
 | 12 | How are air leg distances measured? | 6.3 | **Open; needed before `shockt ref air-distances`.** Great-circle distance between airports is the usual basis; some methods add a fixed uplift for routing and stacking. The choice should match the factor set's method. |
 | 13 | What units are Climate TRACE's `capacity` and `other11`? | 5.7 | **Open, not blocking.** Inferred as gross and deadweight tonnage. They'd only matter for choosing a container-ship size class, which no source we load supports (every ocean leg uses the UK average, Section 6.1). |
+| 14 | How are truck and rail distances measured? | 6.3 | **Answered:** on networks. Road by the openrouteservice `driving-hgv` matrix, rail by shortest track on the BTS North American Rail Network (Section 6.3). A circuity factor was the alternative; the cited source (Ballou, Rahardja and Sakai 2002) is paywalled. |
 
 ### Assumptions behind planned work
 
@@ -812,10 +828,13 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 | | The West Coast unlading share for East-bound states is measurable | **Verified** 2026-10-12 (same files): for vessel imports from Asia bound for VA, GA and OH, the share unladen at West Coast ports fell from 13.6% (2022 Q1) to 11.1% (2023 Q3–Q4), rose to 17.6% (2024 Q4) and eased to about 14% in 2026, while the West Coast control states (CA, OR, WA, AZ) held at 91–93%. The 2022–23 fall is the kind of pre-shock movement A3 flags for the Case 2 baseline. |
 | | Every unlading and entry port code is known | **Verified** 2026-10-12: codes missing from Schedule D carry 0.04% of the kept weight (mostly `1107`); `dim_port` adds them from the loaded data |
 | `dim_nodes` (6.2) | Climate TRACE start ports cover the Asian departure lanes | **Unverified** |
-| | DENUE's establishments in NAICS 33411 (69 loaded) are plausible server assembly sites | **Unverified** |
+| | DENUE's establishments in NAICS 33411 (69 loaded) are plausible server assembly sites | **Verified** 2026-10-12: 29 are in the 251-and-over band, among them Foxconn, Inventec and Pegatron in Ciudad Juárez, Sanmina in Guadalajara and Lenovo in Apodaca |
+| | Every case crossing has a large DENUE site within plausible trucking range | **Unverified** |
 | | A state's population-weighted centre is a reasonable destination point | **Unverified** (a stated limit, Section 6.2) |
 | | Census ports can be placed | **Verified** 2026-10-12: 0.42% of case vessel and 0.14% of air tonnage at unplaced ports |
 | Distances (6.3) | `searoute` measures routes with passages closed | **Verified** (Kaohsiung → Savannah example) |
+| | The openrouteservice quota covers the road pairs | **Verified** 2026-10-12 with the project key: 200 directions requests a day and a matrix limit of 50 in the response headers, below the 2,000 and 500 the [plans page](https://openrouteservice.org/plans/) publishes; every response reports its graph and OSM dates |
+| | The rail network connects the case crossings to the destination states without gaps at the border | **Unverified** |
 | | Climate TRACE's distance sailed is stable enough per lane and month to serve as the observed distance | **Unverified** |
 | Engine factor rule (6.1) | Every factor the rule names exists once with a well-to-wheel value | **Verified** 2026-10-12 against the loaded workbooks |
 
@@ -828,7 +847,7 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 5. **Done.** PortWatch (5.6).
 6. **Done.** Spike 4, the BTS TransBorder loader (5.5) and `fct_mexico_overland_monthly` (Section 7.3).
 7. **Done.** Spike 5, then Climate TRACE voyages (5.7), `fct_voyages` and `agg_voyage_lanes_monthly`.
-8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Planned:** `dim_nodes` (6.2) and the distance generators (6.3).
+8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Planned:** `dim_nodes` (6.2) and the sea, air, road and rail distance generators (6.3).
 9. **Done (2026-10-12).** A full load into Neon: migrations `0011`–`0013` applied (`0013` drops the leftover `raw.seed_emission_factors`), the six Case 2 HS-6 codes loaded and the HS-4 loads retired, `VACUUM FULL` on the three Census tables to return the retired rows' space, Climate TRACE reloaded for the 42-country origins, the factor workbooks and DENUE loaded, `shockt build`, then a storage check against Section 8.
 
 ## 11. Testing
@@ -849,6 +868,8 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 - [BigQuery sandbox](https://cloud.google.com/bigquery/docs/sandbox)
 - [Neon pricing](https://neon.com/pricing); Neon Object Storage [overview](https://neon.com/docs/storage/overview.md), [buckets and branches](https://neon.com/docs/storage/buckets.md), [authentication](https://neon.com/docs/storage/authentication.md)
 - [searoute (PyPI)](https://pypi.org/project/searoute/)
+- [openrouteservice plans](https://openrouteservice.org/plans/) and [API restrictions](https://openrouteservice.org/restrictions/); [OSRM demo server usage policy](https://github.com/Project-OSRM/osrm-backend/wiki/API%20Usage%20Policy); [Geofabrik downloads](https://download.geofabrik.de)
+- [BTS North American Rail Network Lines](https://catalog.data.gov/dataset/north-american-rail-network-lines) and [Nodes](https://catalog.data.gov/dataset/north-american-rail-network-nodes)
 - [UK government GHG conversion factors 2026](https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026) and [EPA GHG Emission Factors Hub](https://www.epa.gov/climateleadership/ghg-emission-factors-hub)
 - [Census Schedule C](https://www.census.gov/foreign-trade/schedules/c/country.txt) and [Schedule D](https://www.census.gov/foreign-trade/schedules/d/distcode.html)
 - [OurAirports data](https://davidmegginson.github.io/ourairports-data/airports.csv), [GeoNames cities5000](https://download.geonames.org/export/dump/cities5000.zip) and [BTS Border Crossing Entry Data](https://data.bts.gov/resource/keg4-3bc2.json)
