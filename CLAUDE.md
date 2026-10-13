@@ -115,6 +115,7 @@ When guidance conflicts, higher sources win:
 - [Effect Style](./docs/effect-style.md): Effect patterns for TypeScript
 - [Front-end Code Style](./docs/front-end-code-style.md): React and TypeScript conventions
 - [Data Ingestion Pipelines](./docs/plans/data-ingestion-pipelines.md): the design for `raw` and `core`
+- [Cost Calculator](./docs/plans/cost-calculator.md): a future plan for freight cost, not in the MVP
 
 # Contributing
 
