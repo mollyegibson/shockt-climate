@@ -1,0 +1,66 @@
+version: 2
+
+x-stale-node: &stale_node
+  relationships:
+    arguments:
+      to: ref('dim_nodes')
+      field: node_id
+    config:
+      severity: warn
+
+seeds:
+  - name: seed_sea_distances
+    description: searoute distances from departure ports to arrival seaports, per scenario (`shockt ref sea-distances`).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["from_node_id", "to_node_id", "scenario"]
+    columns:
+      - name: from_node_id
+        data_tests: [*stale_node]
+      - name: to_node_id
+        data_tests: [*stale_node]
+      - name: km
+        data_tests: [not_null]
+
+  - name: seed_air_distances
+    description: Geodesic distances from departure airports to air gateways (`shockt ref air-distances`).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["from_node_id", "to_node_id"]
+    columns:
+      - name: from_node_id
+        data_tests: [*stale_node]
+      - name: to_node_id
+        data_tests: [*stale_node]
+      - name: km
+        data_tests: [not_null]
+
+  - name: seed_road_distances
+    description: openrouteservice heavy-vehicle distances for truck legs (`shockt ref road-distances`).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["from_node_id", "to_node_id"]
+    columns:
+      - name: from_node_id
+        data_tests: [*stale_node]
+      - name: to_node_id
+        data_tests: [*stale_node]
+      - name: km
+        data_tests: [not_null]
+
+  - name: seed_rail_distances
+    description: Shortest-track distances for rail legs on the BTS North American Rail Network (`shockt ref rail-distances`).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["from_node_id", "to_node_id"]
+    columns:
+      - name: from_node_id
+        data_tests: [*stale_node]
+      - name: to_node_id
+        data_tests: [*stale_node]
+      - name: km
+        data_tests: [not_null]

@@ -7,7 +7,9 @@ from shockt.config import (
     CENSUS_ALL_COUNTRIES,
     CensusFilterConfig,
     DateRange,
+    DestinationStatesConfig,
     HsCodesConfig,
+    LegFactor,
     OriginRegion,
     OriginsConfig,
     OverlandWeightConfig,
@@ -139,9 +141,15 @@ def test_hs2_chapters_come_from_the_case_prefixes() -> None:
 
 def test_overland_range_percentiles_must_be_ordered_within_zero_and_one() -> None:
     with pytest.raises(ValidationError, match="range_percentiles"):
-        OverlandWeightConfig(min_air_vessel_value_usd=1, range_percentiles=[0.95, 0.05])
+        OverlandWeightConfig(
+            min_air_vessel_value_usd=1, range_percentiles=[0.95, 0.05], max_non_crossing_share=0.05
+        )
     with pytest.raises(ValidationError, match="two values"):
-        OverlandWeightConfig(min_air_vessel_value_usd=1, range_percentiles=[0.05, 0.5, 0.95])
+        OverlandWeightConfig(
+            min_air_vessel_value_usd=1,
+            range_percentiles=[0.05, 0.5, 0.95],
+            max_non_crossing_share=0.05,
+        )
 
 
 def test_origin_iso2_comes_from_the_schedule_c_seed() -> None:
@@ -150,3 +158,20 @@ def test_origin_iso2_comes_from_the_schedule_c_seed() -> None:
     assert {"CN", "TW", "MX"} <= set(iso2)
     assert "DE" not in iso2
     assert iso2 == sorted(iso2)
+
+
+def test_leg_factors_reject_a_vehicle_type_outside_the_vocabulary() -> None:
+    with pytest.raises(ValidationError, match="vehicle_type"):
+        LegFactor.model_validate({"source": "uk_desnz", "vehicle_type": "container ship"})
+
+
+def test_leg_factors_reject_a_size_class_that_is_not_a_token() -> None:
+    with pytest.raises(ValidationError, match="size_class"):
+        LegFactor.model_validate(
+            {"source": "uk_desnz", "vehicle_type": "container_ship", "size_class": "8000+ TEU"}
+        )
+
+
+def test_warning_limits_are_shares() -> None:
+    with pytest.raises(ValidationError, match="max_unidentified_share"):
+        DestinationStatesConfig.model_validate({"max_unidentified_share": 1.5})

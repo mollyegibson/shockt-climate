@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
+import psycopg
 import typer
 
 from shockt import dbt, http, manifest
@@ -17,7 +18,15 @@ from shockt.http import make_client
 from shockt.loading import ParsedSource, Target
 from shockt.months import MonthRange
 from shockt.origins import origin_iso2, origin_iso3
-from shockt.reference import census_schedules, config_seeds
+from shockt.reference import (
+    air_distances,
+    census_schedules,
+    config_seeds,
+    node_pairs,
+    rail_distances,
+    road_distances,
+    sea_distances,
+)
 from shockt.settings import PROJECT_ROOT, get_settings
 from shockt.sources import (
     bts_t100,
@@ -774,6 +783,133 @@ def loads_list(
         typer.echo(f"\nraw tables: {format_size(total)}")
         for table, size in sizes:
             typer.echo(f"  {table:28} {format_size(size):>10}")
+
+
+SEEDS_DIR = dbt.DBT_DIR / "seeds"
+FROM_ARCHIVE_KEY_OPTION = typer.Option(
+    "--from-archive",
+    help="Re-parse the bundle archived at this object key instead of fetching again.",
+)
+
+
+@ref_app.command("sea-distances")
+def ref_sea_distances() -> None:
+    """Write seed_sea_distances.csv: searoute distances from departure ports to arrival seaports,
+    under every scenario in config/sources.yaml."""
+    config = sources_config().distances.sea
+    sea_distances.check_scenarios(config.scenarios, sea_distances.known_passages())
+    with node_pairs.connect_core(get_settings()) as conn:
+        pairs = node_pairs.shared_origin_pairs(
+            conn, ["departure_port"], ["vessel"], ["arrival_seaport"], ["vessel"]
+        )
+    rows = sea_distances.measure(pairs, config.scenarios)
+    sea_distances.write_seed(rows, SEEDS_DIR / "seed_sea_distances.csv")
+    typer.echo(
+        f"seed_sea_distances.csv: {len(pairs):,} port pairs × {len(config.scenarios)} scenarios"
+    )
+
+
+@ref_app.command("air-distances")
+def ref_air_distances() -> None:
+    """Write seed_air_distances.csv: geodesic distances from departure airports to air gateways."""
+    with node_pairs.connect_core(get_settings()) as conn:
+        pairs = node_pairs.shared_origin_pairs(
+            conn, ["departure_airport"], ["air"], ["air_gateway"], ["air"]
+        )
+    rows = air_distances.measure(pairs)
+    air_distances.write_seed(rows, SEEDS_DIR / "seed_air_distances.csv")
+    typer.echo(f"seed_air_distances.csv: {len(rows):,} airport pairs")
+
+
+def _truck_pairs(conn: psycopg.Connection) -> tuple[list[node_pairs.NodePair], ...]:
+    """Plant → crossing pairs, and crossing, seaport and gateway → destination state pairs in the
+    mode each carries: overland, vessel and air."""
+    to_states = [
+        *node_pairs.shared_origin_pairs(
+            conn, ["border_crossing"], ["truck"], ["destination_state"], ["other"]
+        ),
+        *node_pairs.shared_origin_pairs(
+            conn, ["arrival_seaport"], ["vessel"], ["destination_state"], ["vessel"]
+        ),
+        *node_pairs.shared_origin_pairs(
+            conn, ["air_gateway"], ["air"], ["destination_state"], ["air"]
+        ),
+    ]
+    return node_pairs.plant_crossing_pairs(conn), to_states
+
+
+@ref_app.command("road-distances")
+def ref_road_distances(
+    from_archive: Annotated[str | None, FROM_ARCHIVE_KEY_OPTION] = None,
+) -> None:
+    """Fetch and archive openrouteservice heavy-vehicle distances for the truck legs; write
+    seed_road_distances.csv."""
+    settings = get_settings()
+    config = sources_config().distances.road
+    archive = NeonArchive(settings)
+    with node_pairs.connect_core(settings) as conn:
+        plant_pairs, state_pairs = _truck_pairs(conn)
+    requests = [
+        *road_distances.plan_requests(plant_pairs, config.max_cells_per_request),
+        *road_distances.plan_requests(state_pairs, config.max_cells_per_request),
+    ]
+    if from_archive:
+        key, body = from_archive, archive.get(from_archive)
+    else:
+        if settings.ors_api_key is None:
+            raise typer.BadParameter("ORS_API_KEY is not set")
+        with make_client(timeout_seconds=300) as client:
+            body = road_distances.fetch_bundle(
+                client, config, settings.ors_api_key.get_secret_value(), requests
+            )
+        key = object_key(road_distances.DATASET, date.today().isoformat(), "matrix.json")
+        archive.put(key, body, "application/json")
+    pairs = [*plant_pairs, *state_pairs]
+    rows, missing = road_distances.parse_bundle(body, pairs, requests)
+    road_distances.write_seed(rows, SEEDS_DIR / "seed_road_distances.csv")
+    typer.echo(
+        f"seed_road_distances.csv: {len(rows):,} of {len(pairs):,} pairs from "
+        f"{len(requests)} requests, archived at {key}"
+    )
+    for line in node_pairs.report_unmeasured(missing, "road route"):
+        typer.echo(line)
+
+
+@ref_app.command("rail-distances")
+def ref_rail_distances(
+    from_archive: Annotated[str | None, FROM_ARCHIVE_KEY_OPTION] = None,
+) -> None:
+    """Fetch and archive the BTS North American Rail Network; write seed_rail_distances.csv with
+    shortest-track distances for the rail legs."""
+    settings = get_settings()
+    config = sources_config().distances.rail
+    archive = NeonArchive(settings)
+    with node_pairs.connect_core(settings) as conn:
+        pairs = [
+            *node_pairs.shared_origin_pairs(
+                conn, ["border_crossing"], ["rail"], ["destination_state"], ["other"]
+            ),
+            *node_pairs.shared_origin_pairs(
+                conn, ["arrival_seaport"], ["vessel"], ["destination_state"], ["vessel"]
+            ),
+        ]
+    if from_archive:
+        key, body = from_archive, archive.get(from_archive)
+    else:
+        with make_client(timeout_seconds=300) as client:
+            body = rail_distances.fetch_bundle(client, config)
+        key = object_key(rail_distances.DATASET, date.today().isoformat(), "network.json.gz")
+        archive.put(key, body, "application/gzip")
+    network = rail_distances.parse_bundle(body, config.track_classes)
+    rows, too_far = rail_distances.measure(network, pairs, config.max_snap_km)
+    rail_distances.write_seed(rows, SEEDS_DIR / "seed_rail_distances.csv")
+    typer.echo(
+        f"seed_rail_distances.csv: {len(rows):,} of {len(pairs):,} pairs on "
+        f"{network.graph.number_of_nodes():,} rail nodes ({network.version}), archived at {key}"
+    )
+    measure = f"rail route within {config.max_snap_km:g} km of each end"
+    for line in node_pairs.report_unmeasured(too_far, measure):
+        typer.echo(line)
 
 
 if __name__ == "__main__":

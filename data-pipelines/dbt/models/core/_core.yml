@@ -210,8 +210,10 @@ models:
       Every freight emission factor per tonne-km in the UK government conversion factors and the
       EPA GHG Emission Factors Hub, in kg CO2e: tank-to-wheel, well-to-tank and well-to-wheel. UK
       factors are paired with their own well-to-tank rows; EPA factors (combustion only) take the
-      UK well-to-tank ratio of the fuel `epa_vehicle_fuel` assigns. Which factor a leg uses is the
-      engine's rule (plan section 6.1).
+      UK well-to-tank ratio of the fuel `epa_vehicle_fuel` assigns. `vehicle_type`, `size_class`,
+      `haul` and `radiative_forcing` come from the source labels (`factor_attributes` macros), so
+      `leg_factors` in config/transforms.yaml can name the factor each mode uses;
+      `assert_leg_factors_match_one_factor` checks each names exactly one.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
@@ -401,7 +403,9 @@ models:
                 field: plant_id
 
   - name: dim_destination_states
-    description: US states of destination with case imports, at the population-weighted centre of their GeoNames cities.
+    description: >
+      US states of destination with case imports, each at the GeoNames town nearest the
+      population-weighted centre of its cities. `assert_destination_state_rules` pins known states.
     columns:
       - name: state
         data_tests: [unique, not_null]

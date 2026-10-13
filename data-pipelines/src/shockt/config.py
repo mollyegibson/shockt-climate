@@ -1,3 +1,4 @@
+import re
 from collections.abc import Sequence
 from functools import cache
 from pathlib import Path
@@ -181,6 +182,43 @@ class EmissionFactorsConfig(ConfigModel):
     epa: FactorSource
 
 
+class SeaDistancesConfig(ConfigModel):
+    scenarios: dict[str, list[str]]
+    """Scenario name → the `searoute` passages closed in it; the generator checks the names
+    against the library's own list."""
+
+    @model_validator(mode="after")
+    def _token_names(self) -> "SeaDistancesConfig":
+        bad = [name for name in self.scenarios if not re.fullmatch(r"[a-z][a-z0-9_]*", name)]
+        if bad or not self.scenarios:
+            raise ValueError(f"scenario names must be lower-case tokens: {bad or 'none given'}")
+        return self
+
+
+class RoadDistancesConfig(ConfigModel):
+    matrix_url: str
+    """openrouteservice matrix endpoint, with the routing profile in its path."""
+    max_cells_per_request: int = Field(gt=0)
+    """Origins × destinations the API accepts in one matrix request."""
+
+
+class RailDistancesConfig(ConfigModel):
+    lines_url: str
+    nodes_url: str
+    """ArcGIS FeatureServer layers of the BTS North American Rail Network."""
+    track_classes: list[str]
+    """`NET` codes of the track a route may use."""
+    page_size: int = Field(gt=0)
+    max_snap_km: float = Field(gt=0)
+    """Farthest a node may be from track; pairs with an end farther away get no rail distance."""
+
+
+class DistancesConfig(ConfigModel):
+    sea: SeaDistancesConfig
+    road: RoadDistancesConfig
+    rail: RailDistancesConfig
+
+
 class SourcesConfig(ConfigModel):
     date_range: DateRange
     census_api: CensusApiConfig
@@ -192,6 +230,7 @@ class SourcesConfig(ConfigModel):
     census_schedules: CensusSchedulesConfig
     reference_sources: ReferenceSourcesConfig
     emission_factors: EmissionFactorsConfig
+    distances: DistancesConfig
 
 
 class AirPortsConfig(ConfigModel):
@@ -220,6 +259,9 @@ class OverlandWeightConfig(ConfigModel):
     """An origin's air and vessel value of a code needed for its own kg per dollar to be used."""
     range_percentiles: list[float]
     """Value-weighted percentiles of kg per dollar across origins that bound an estimate's range."""
+    max_non_crossing_share: float = Field(ge=0, le=1)
+    """Largest share of a code's Mexican overland value allowed to enter away from a US–Mexico
+    crossing, which the Mexico overland leg leaves out, before a warning."""
 
     @model_validator(mode="after")
     def _ordered_percentiles(self) -> "OverlandWeightConfig":
@@ -229,6 +271,66 @@ class OverlandWeightConfig(ConfigModel):
         if not 0 <= low < high <= 1:
             raise ValueError(f"range_percentiles must satisfy 0 <= low < high <= 1: {low}, {high}")
         return self
+
+
+VehicleType = Literal[
+    "container_ship",
+    "bulk_carrier",
+    "general_cargo",
+    "ropax_ferry",
+    "refrigerated_cargo",
+    "roro_ferry",
+    "vehicle_carrier",
+    "chemical_tanker",
+    "crude_tanker",
+    "lng_tanker",
+    "lpg_tanker",
+    "products_tanker",
+    "freight_flight",
+    "rail",
+    "hgv",
+    "hgv_refrigerated",
+    "van",
+    "medium_heavy_duty_truck",
+    "aircraft",
+    "waterborne_craft",
+]
+"""The `vehicle_type` values `core.ref_emission_factors` gives the UK and EPA factors."""
+
+
+class LegFactor(ConfigModel):
+    """Which emission factor a mode's legs use, by the factor's structured attributes; an attribute
+    left out doesn't narrow the match."""
+
+    source: Literal["uk_desnz", "epa_hub"]
+    vehicle_type: VehicleType
+    size_class: str | None = Field(default=None, pattern=r"^[a-z0-9_]+$")
+    haul: Literal["domestic_uk", "short_haul_uk", "long_haul_uk", "international"] | None = None
+    radiative_forcing: bool | None = None
+
+
+class LegFactorsConfig(ConfigModel):
+    ocean: LegFactor
+    air: LegFactor
+    truck: LegFactor
+    rail: LegFactor
+
+
+class UnplacedShareConfig(ConfigModel):
+    vessel: float = Field(ge=0, le=1)
+    air: float = Field(ge=0, le=1)
+
+
+class DepartureNodesConfig(ConfigModel):
+    max_unplaced_share: UnplacedShareConfig
+    """Largest share of case tonnage, by mode, allowed from origins with no departure node before
+    a warning."""
+
+
+class DestinationStatesConfig(ConfigModel):
+    max_unidentified_share: float = Field(ge=0, le=1)
+    """Largest share of state-level case tonnage allowed in the unidentified state `XX` before a
+    warning."""
 
 
 class ArrivalPortsConfig(ConfigModel):
@@ -251,6 +353,9 @@ class TransformsConfig(ConfigModel):
     overland_weight: OverlandWeightConfig
     mexico_sites: MexicoSitesConfig
     arrival_ports: ArrivalPortsConfig
+    leg_factors: LegFactorsConfig
+    departure_nodes: DepartureNodesConfig
+    destination_states: DestinationStatesConfig
 
 
 class HsPrefix(ConfigModel):

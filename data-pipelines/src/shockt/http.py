@@ -48,6 +48,8 @@ def _send(
     url: str,
     params: Mapping[str, str] | None = None,
     data: Mapping[str, str] | None = None,
+    json: object = None,
+    headers: Mapping[str, str] | None = None,
 ) -> httpx.Response:
     for attempt in Retrying(
         retry=retry_if_exception(_is_retryable),
@@ -57,7 +59,9 @@ def _send(
     ):
         with attempt:
             # Empty params would replace a query string already in the URL.
-            response = client.request(method, url, params=params or None, data=data)
+            response = client.request(
+                method, url, params=params or None, data=data, json=json, headers=headers
+            )
             response.raise_for_status()
             return response
     raise AssertionError("unreachable: Retrying either returns or re-raises")
@@ -82,3 +86,17 @@ def post_form(client: httpx.Client, url: str, data: Mapping[str, str]) -> httpx.
         return _send(client, "POST", url, data=data)
     except httpx.HTTPError as exc:
         raise SourceRequestError(f"{type(exc).__name__}: {exc}") from None
+
+
+def post_json(
+    client: httpx.Client,
+    url: str,
+    body: object,
+    headers: Mapping[str, str],
+    secrets: tuple[str, ...] = (),
+) -> httpx.Response:
+    """POST a JSON body with the same retries as `get`; errors are re-raised without secrets."""
+    try:
+        return _send(client, "POST", url, json=body, headers=headers)
+    except httpx.HTTPError as exc:
+        raise SourceRequestError(redact(f"{type(exc).__name__}: {exc}", secrets)) from None

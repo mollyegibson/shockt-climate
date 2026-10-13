@@ -104,12 +104,12 @@ nodes as (
     select
         'destination_state',
         state,
-        state,
+        state || ' (' || town || ')',
         'USA',
         lat,
         lon,
-        null,
-        'geonames_population_centre'
+        {{ coast_region('lon', 'lat') }},
+        'geonames_town_nearest_population_centre'
     from {{ ref('dim_destination_states') }}
 )
 

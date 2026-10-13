@@ -34,3 +34,11 @@ seeds:
       +column_types: {port_code: text, port_name: text, district_code: text, source: text}
     seed_hs_case_codes:
       +column_types: {hs_prefix: text, cases: text, source: text}
+    seed_sea_distances:
+      +column_types: {from_node_id: text, to_node_id: text, scenario: text, km: numeric, passages: text, source: text}
+    seed_air_distances:
+      +column_types: {from_node_id: text, to_node_id: text, km: numeric, source: text}
+    seed_road_distances:
+      +column_types: {from_node_id: text, to_node_id: text, km: numeric, duration_h: numeric, osm_date: text, graph_date: text, engine_version: text, source: text}
+    seed_rail_distances:
+      +column_types: {from_node_id: text, to_node_id: text, km: numeric, from_snap_km: numeric, to_snap_km: numeric, network_version: text, source: text}

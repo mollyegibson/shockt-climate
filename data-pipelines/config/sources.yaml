@@ -115,3 +115,38 @@ reference_sources:
     # assembly site.
     cases:
       - tariffs_2025
+
+distances:
+  # Generators that write the distance seeds (plan section 6.3), between the node pairs in
+  # core.fct_node_weights_monthly.
+  sea:
+    # Passages closed in each scenario, by searoute's names. `northwest` is searoute's own default:
+    # the Northwest Passage is closed in every scenario.
+    scenarios:
+      open:
+        - northwest
+      panama_closed:
+        - northwest
+        - panama
+      red_sea_closed:
+        - northwest
+        - babalmandab
+      panama_and_red_sea_closed:
+        - northwest
+        - panama
+        - babalmandab
+  road:
+    # Heavy-goods-vehicle profile. A matrix request accepts up to 3,500 origins × destinations
+    # (https://openrouteservice.org/restrictions/).
+    matrix_url: https://api.openrouteservice.org/v2/matrix/driving-hgv
+    max_cells_per_request: 3500
+  rail:
+    lines_url: https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_North_American_Rail_Network_Lines/FeatureServer/0
+    nodes_url: https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_North_American_Rail_Network_Nodes/FeatureServer/0
+    # Active track, by the layer's NET codes: main line, major and minor industrial leads, long
+    # sidings, yards and rail ferries. Out-of-service, abandoned, trail and transit-only lines are
+    # left out.
+    track_classes: [M, I, O, S, Y, F]
+    page_size: 2000
+    # Nevada's population centre is 114 km from track, the farthest of the destination states.
+    max_snap_km: 150

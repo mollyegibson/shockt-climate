@@ -143,6 +143,17 @@ uv run shockt ref config-seeds       # HS case codes, from config/
 uv run shockt ref census-schedules   # Census country and port lists
 ```
 
+The distance seeds are measured between the nodes in `core`, so they run after a build, and a second build loads them. Road and rail archive what they download; `--from-archive KEY` re-parses an archived bundle instead of fetching again. Road needs `ORS_API_KEY` and uses about four requests of the openrouteservice quota:
+
+```sh
+uv run shockt build                   # builds the nodes and weights the generators read
+uv run shockt ref sea-distances       # searoute, every scenario in config/sources.yaml
+uv run shockt ref air-distances       # geodesic, departure airports to air gateways
+uv run shockt ref road-distances      # openrouteservice heavy-vehicle matrix (archived)
+uv run shockt ref rail-distances      # BTS North American Rail Network, shortest track (archived)
+uv run shockt build                   # loads the distance seeds and runs their tests
+```
+
 Freight emission factors are loaded whole from the UK government conversion factors and the EPA GHG Emission Factors Hub (workbooks pinned under `emission_factors` in `config/sources.yaml`); `core.ref_emission_factors` derives every per-tonne-km factor from them:
 
 ```sh
@@ -151,6 +162,236 @@ uv run shockt ingest epa-ghg-hub      # EPA Hub Tables 8 (transport) and 11 (GWP
 ```
 
 Census ports and Climate TRACE arrival ports get their coast region from the same rule, `macros/coast_region.sql`, applied to each port's coordinates. `dim_port` places Census ports from BTS border crossings, OurAirports and GeoNames; ports it can't place are `unknown`, and a test bounds their share of case tonnage.
+
+### The `core` schema
+
+The tables dbt builds in `core`, with their keys, main columns and joins. Every column is described in `dbt/models/core/_core.yml`.
+
+**Imports, weights and reference tables.** The three dimensions are the hubs. `ref_emission_factors` is a lookup the engine reads through `leg_factors` in `config/transforms.yaml`; the chokepoint transits are time series compared with the imports by month.
+
+```mermaid
+erDiagram
+  dim_country {
+    text census_cty_code PK
+    text iso3
+    text region
+  }
+  dim_hs {
+    text hs10 PK
+    text hs6
+    text_array cases
+  }
+  dim_port {
+    text port_code PK
+    float lat
+    float lon
+    text coast_region
+    bool is_border_crossing
+  }
+  dim_census_air_ports {
+    text port_code PK, FK
+    text iata_code
+    float lat
+    float lon
+  }
+  dim_climatetrace_ports {
+    text end_port_id PK
+    float lat
+    float lon
+    text coast_region
+  }
+  fct_imports_monthly {
+    date month PK
+    text hs10 PK, FK
+    text census_cty_code PK, FK
+    text mode PK
+    numeric weight_t
+  }
+  fct_imports_port_monthly {
+    date month PK
+    text hs6 PK
+    text census_cty_code PK, FK
+    text port_code PK, FK
+    text mode PK
+    numeric weight_t
+  }
+  fct_imports_state_monthly {
+    date month PK
+    text hs6 PK
+    text census_cty_code PK, FK
+    text state PK
+    text mode PK
+    numeric weight_t
+  }
+  fct_imports_state_port_quarterly {
+    date quarter PK
+    text state PK
+    text unlading_port_code PK, FK
+    text entry_port_code PK, FK
+    text census_cty_code PK, FK
+    text mode PK
+  }
+  agg_air_vessel_kg_per_usd {
+    text hs6 PK
+    text census_cty_code PK, FK "null for all origins"
+    numeric kg_per_usd
+    numeric kg_per_usd_low
+    numeric kg_per_usd_high
+  }
+  fct_mexico_overland_monthly {
+    date month PK
+    text hs6 PK
+    text port_code PK, FK "border crossing"
+    text mode PK "truck or rail"
+    numeric weight_t
+    numeric weight_t_low
+    numeric weight_t_high
+  }
+  fct_voyages {
+    text asset_identifier PK
+    timestamptz started_at PK
+    text start_iso3 FK
+    text end_port_id FK
+    float distance_km
+  }
+  agg_voyage_lanes_monthly {
+    date month PK
+    text origin_iso3 PK, FK
+    text end_coast_region PK
+    float median_distance_km
+  }
+  ref_emission_factors {
+    text source PK
+    text source_row_id PK
+    text mode
+    text vehicle_type
+    text size_class
+    text haul
+    bool radiative_forcing
+    float wtw_kg_co2e_per_tkm
+  }
+  fct_chokepoint_transits_monthly {
+    date month PK
+    text chokepoint_id PK
+    bigint n_container
+    numeric container_t
+  }
+
+  dim_hs ||--o{ fct_imports_monthly : "hs10"
+  dim_country ||--o{ fct_imports_monthly : "census_cty_code"
+  dim_country ||--o{ fct_imports_port_monthly : "census_cty_code"
+  dim_port ||--o{ fct_imports_port_monthly : "port_code"
+  dim_country ||--o{ fct_imports_state_monthly : "census_cty_code"
+  dim_country ||--o{ fct_imports_state_port_quarterly : "census_cty_code"
+  dim_port ||--o{ fct_imports_state_port_quarterly : "unlading and entry port"
+  dim_port ||--o| dim_census_air_ports : "port_code"
+  dim_country |o--o{ agg_air_vessel_kg_per_usd : "census_cty_code"
+  agg_air_vessel_kg_per_usd ||--o{ fct_mexico_overland_monthly : "hs6 ratio and range"
+  dim_port ||--o{ fct_mexico_overland_monthly : "crossing"
+  dim_climatetrace_ports ||--o{ fct_voyages : "end_port_id"
+  dim_country ||--o{ fct_voyages : "start_iso3 = iso3"
+  dim_country ||--o{ agg_voyage_lanes_monthly : "origin_iso3 = iso3"
+```
+
+**Nodes, weights and distances.** Each location model places one kind of node; `dim_nodes` combines them with the arrival seaports and crossings from `dim_port` and the air gateways from `dim_census_air_ports`, keyed `kind:source_key`. The `seed_*` distance tables load into `raw` from the `shockt ref` generators.
+
+```mermaid
+erDiagram
+  dim_departure_ports {
+    text start_port_id PK
+    text iso3
+    float lat
+    float lon
+  }
+  dim_departure_airports {
+    text iata_code PK
+    text iso3
+    float lat
+    float lon
+  }
+  dim_mexico_plants {
+    bigint plant_id PK
+    text scian_code
+    int employee_band_min
+    float lat
+    float lon
+  }
+  map_crossing_plant {
+    text port_code PK "border crossing"
+    text hs6 PK
+    bigint plant_id FK
+  }
+  dim_destination_states {
+    text state PK
+    text town
+    float lat
+    float lon
+  }
+  dim_nodes {
+    text node_id PK "kind:source_key"
+    text kind
+    text iso3
+    float lat
+    float lon
+    text coast_region
+  }
+  fct_node_weights_monthly {
+    date month PK
+    text node_id PK, FK
+    text census_cty_code PK "origin"
+    text hs6 PK
+    text mode PK
+    text lane_coast_region PK
+    numeric weight_t
+    numeric weight_t_low
+    numeric weight_t_high
+    text weight_basis
+  }
+  agg_observed_sea_distances_monthly {
+    date month PK
+    text origin_iso3 PK
+    text arrival_node_id PK, FK
+    float median_distance_km
+  }
+  seed_sea_distances {
+    text from_node_id PK, FK
+    text to_node_id PK, FK
+    text scenario PK
+    numeric km
+    text passages
+  }
+  seed_air_distances {
+    text from_node_id PK, FK
+    text to_node_id PK, FK
+    numeric km
+  }
+  seed_road_distances {
+    text from_node_id PK, FK
+    text to_node_id PK, FK
+    numeric km
+    numeric duration_h
+    text osm_date
+  }
+  seed_rail_distances {
+    text from_node_id PK, FK
+    text to_node_id PK, FK
+    numeric km
+    numeric from_snap_km
+    numeric to_snap_km
+  }
+
+  dim_departure_ports ||--|| dim_nodes : "departure_port"
+  dim_departure_airports ||--|| dim_nodes : "departure_airport"
+  dim_mexico_plants ||--|| dim_nodes : "mexico_plant"
+  dim_destination_states ||--|| dim_nodes : "destination_state"
+  dim_mexico_plants ||--o{ map_crossing_plant : "plant_id"
+  dim_nodes ||--o{ fct_node_weights_monthly : "node_id"
+  dim_nodes ||--o{ agg_observed_sea_distances_monthly : "arrival seaport"
+  dim_nodes ||--o{ seed_sea_distances : "from and to"
+  dim_nodes ||--o{ seed_air_distances : "from and to"
+  dim_nodes ||--o{ seed_road_distances : "from and to"
+  dim_nodes ||--o{ seed_rail_distances : "from and to"
+```
 
 ## Tests
 

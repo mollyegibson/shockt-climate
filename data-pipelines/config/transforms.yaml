@@ -27,6 +27,10 @@ overland_weight:
   range_percentiles:
     - 0.05
     - 0.95
+  # Mexican overland value entering away from a US-Mexico crossing (through Canada, or recorded at
+  # airports) is left out of the Mexico overland leg; warn when it passes this share of a code's
+  # value over the loaded months. 1.25% at most on 2026-10-13 (transformers, 850433).
+  max_non_crossing_share: 0.05
 
 census_ports:
   # Largest share of case vessel or air tonnage allowed at Census ports dim_port can't place.
@@ -41,3 +45,36 @@ arrival_ports:
   # A container voyage counts toward a Census port's observed sea distance when it ends within this
   # distance of the port's point. Census ports sit at their city, often 25-40 km from the terminals.
   voyage_radius_km: 50
+
+leg_factors:
+  # The emission factor each mode's legs use, named by the factor's attributes in
+  # core.ref_emission_factors. No source we load gives a ship's container capacity, so ocean legs
+  # use the container-ship average. The method page shows air without radiative forcing alongside.
+  ocean:
+    source: uk_desnz
+    vehicle_type: container_ship
+    size_class: average
+  air:
+    source: uk_desnz
+    vehicle_type: freight_flight
+    haul: international
+    radiative_forcing: true
+  truck:
+    source: epa_hub
+    vehicle_type: medium_heavy_duty_truck
+  rail:
+    source: epa_hub
+    vehicle_type: rail
+
+departure_nodes:
+  # Case tonnage from origins with no departure port or airport is left out of the weights; warn
+  # when it passes these shares of the mode's case tonnage (0.0005% vessel, 0.006% air on
+  # 2026-10-13).
+  max_unplaced_share:
+    vessel: 0.01
+    air: 0.01
+
+destination_states:
+  # Case imports to Census's unidentified state `XX` have no destination node; warn when they pass
+  # this share of state-level tonnage (0.0001% on 2026-10-13).
+  max_unidentified_share: 0.01
