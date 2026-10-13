@@ -24,7 +24,7 @@ from shockt_engine import (
     weighted_leg_distance,
 )
 
-from shockt_analysis.cases import LaneContext, lane_inputs
+from shockt_analysis.cases import INTERNATIONAL_LEGS, LaneContext, lane_inputs
 
 COASTS = ("east", "gulf", "west")
 """The US coast regions a lane can arrive on; inland, noncontiguous and unknown ports are
@@ -223,12 +223,15 @@ def lane_result(
 
 
 def intensity_parts(result: LaneResult) -> dict[str, float]:
-    """A lane's emissions per tonne in two parts: the international leg (sea or air) and the
-    inland leg in the US."""
-    international, *inland = result.legs
+    """A lane's emissions per tonne in two parts: the legs that bring freight to the US
+    (`international`) and the legs inside it (`inland`)."""
     return {
-        "international": international.kg_co2e_per_t,
-        "inland": sum(leg.kg_co2e_per_t for leg in inland),
+        "international": sum(
+            leg.kg_co2e_per_t for leg in result.legs if leg.name in INTERNATIONAL_LEGS
+        ),
+        "inland": sum(
+            leg.kg_co2e_per_t for leg in result.legs if leg.name not in INTERNATIONAL_LEGS
+        ),
     }
 
 

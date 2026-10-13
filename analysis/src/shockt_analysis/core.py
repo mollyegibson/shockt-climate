@@ -234,3 +234,18 @@ def state_port_vessel(conn: psycopg.Connection, region: str) -> pl.DataFrame:
         """,
         {"region": region},
     )
+
+
+def air_values(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly air value and shipping weight by origin and HS-6, from Census."""
+    return frame(
+        conn,
+        """
+        select month, census_cty_code, hs6, sum(value_usd)::float8 as value_usd,
+            sum(weight_t)::float8 as weight_t
+        from core.fct_imports_monthly
+        where hs6 = any(%(hs6)s) and mode = 'air' and weight_t > 0
+        group by month, census_cty_code, hs6
+        """,
+        {"hs6": list(hs6)},
+    )

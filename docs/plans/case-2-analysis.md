@@ -159,8 +159,9 @@ As in Case 1 (8 of its plan), under `inputs/cases/panama_red_sea_2023/`:
 5. Mode: air share and diversion rates.
 6. Lane intensities, including the East-bound alternatives.
 7. The supply mix per window and its decomposition.
-8. Findings: DERIVED, INFERENCE, and what the data can't say.
-9. Write `evidence_derived.yaml` and draft causal labels.
+8. Results at a glance: sea-leg emissions per tonne on Suez and Panama lanes, the four routes to the East-bound states, and the decomposition as a waterfall.
+9. Findings: DERIVED, INFERENCE, and what the data can't say.
+10. Write `evidence_derived.yaml` and draft causal labels.
 
 ## 10. Open questions
 

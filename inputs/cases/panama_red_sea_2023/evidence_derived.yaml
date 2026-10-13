@@ -3,7 +3,7 @@ case: panama_red_sea_2023
 status: draft
 generated_by:
   notebook: analysis/case2/case2_panama_red_sea.ipynb
-  git_commit: e097cd6-dirty
+  git_commit: 247a85e-dirty
   windows_file: inputs/cases/panama_red_sea_2023/shock_windows.yaml
   run_at: '2026-10-13'
   data:

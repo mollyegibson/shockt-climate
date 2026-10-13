@@ -159,8 +159,9 @@ Drafts in the shape the proposal sets out; the schema is fixed when CI validatio
 6. The supply mix per window, and its change.
 7. The missing leg into Mexico.
 8. The comparison: servers against the exposed gear.
-9. Findings: what the data shows (DERIVED), what it suggests (INFERENCE) and what it can't say.
-10. Write `evidence_derived.yaml`, and draft causal labels for review.
+9. Results at a glance: emissions per tonne by window with the range across weight assumptions (ingestion plan, question 18), tonnes per month by origin, and the change in the mix split by `mix_decomposition`.
+10. Findings: what the data shows (DERIVED), what it suggests (INFERENCE) and what it can't say.
+11. Write `evidence_derived.yaml`, and draft causal labels for review.
 
 ## 10. Open questions
 

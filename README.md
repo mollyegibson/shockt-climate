@@ -4,9 +4,9 @@
 
 ShockT Climate helps a company decide its next move when a supply-chain shock hits, using the carbon cost of how the market responded to real past shocks.
 
-The user is a sustainability director at a company that buys, builds or operates data center hardware and reports Scope 3 emissions. When a shock hits, they need to influence their company's response (transport mode, port of entry, timing and inventory, and volume between existing sites) before the emissions show up in next year's inventory.
+The user is a sustainability consultant advising companies in any industry that import goods and report Scope 3 emissions. When a shock hits, they need to help a client decide how to respond (transport mode, port of entry, timing and inventory, and volume between existing sites) before the emissions show up in next year's inventory.
 
-The MVP pairs two case studies with a scenario calculator, both for data center hardware:
+The MVP pairs two case studies with a scenario calculator. The case studies start with data center hardware; the tool works for goods from any industry, and apparel is the proposed next product:
 
 - **Policy shock:** the 2025 US tariffs and the shift of AI server supply between Taiwan and Mexico.
 - **Physical and climate shock:** the 2023–24 Panama Canal drought and Red Sea diversions, which squeezed Asia-to-US East Coast shipping.
