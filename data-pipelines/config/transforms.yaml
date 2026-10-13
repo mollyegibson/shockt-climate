@@ -46,26 +46,6 @@ arrival_ports:
   # distance of the port's point. Census ports sit at their city, often 25-40 km from the terminals.
   voyage_radius_km: 50
 
-leg_factors:
-  # The emission factor each mode's legs use, named by the factor's attributes in
-  # core.ref_emission_factors. No source we load gives a ship's container capacity, so ocean legs
-  # use the container-ship average. The method page shows air without radiative forcing alongside.
-  ocean:
-    source: uk_desnz
-    vehicle_type: container_ship
-    size_class: average
-  air:
-    source: uk_desnz
-    vehicle_type: freight_flight
-    haul: international
-    radiative_forcing: true
-  truck:
-    source: epa_hub
-    vehicle_type: medium_heavy_duty_truck
-  rail:
-    source: epa_hub
-    vehicle_type: rail
-
 departure_nodes:
   # Case tonnage from origins with no departure port or airport is left out of the weights; warn
   # when it passes these shares of the mode's case tonnage (0.0005% vessel, 0.006% air on

@@ -622,7 +622,7 @@ Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shoc
 
 **Why two sources:** the EPA Hub reflects the US truck and rail fleet, and its rail factor is well below the UK's. The EPA has no ocean container or international air factors, which the UK set has, with size classes and radiative-forcing variants.
 
-**Which factor a leg uses** is a declared choice, so it lives in `config/transforms.yaml` as named settings, not as the sources' labels:
+**Which factor a leg uses** is a declared choice of the emissions method, so it belongs to the engine: `engine/config/leg_factors.yaml` names each mode's factor by its attributes, not the sources' labels. This pipeline publishes every factor with those attributes; the engine chooses.
 
 ```yaml
 leg_factors:
@@ -644,15 +644,15 @@ leg_factors:
 ```
 
 - **Structured columns:** `core.ref_emission_factors` gains `vehicle_type`, `size_class`, `haul` and `radiative_forcing`, set from the source labels by a tested macro (for example UK `Cargo ship / Container ship / Average` → `container_ship`, `average`; `Freight flights / International, to/from non-UK / With RF` → `freight_flight`, `international`, with radiative forcing). The macro names every label it knows; a dbt test fails if a freight row gets no `vehicle_type`, so a new label in a future workbook needs a decision. The joined `variant` label stays for display.
-- **Validation:** the config model checks each value against the vocabulary (`container_ship`, `international` and so on), so a typo fails when config loads. A dbt test checks that each mode's settings match exactly one factor with a well-to-wheel value.
-- **Lookup:** the engine takes each leg's mode, picks the one factor matching its settings, and fails if none or several match. A leg in a mode with no settings is an error, so a new leg type needs a decision before it gets a number.
+- **Validation:** the engine's config model checks each value against the vocabulary (`container_ship`, `international` and so on), so a typo fails when config loads; `select_factors` fails if a mode's settings match no factor with a well-to-wheel value, or several, and its tests pin the committed choices.
+- **Lookup:** the engine (`shockt_engine.select_factors`) takes each leg's mode, picks the one factor matching its settings, and fails if none or several match. A leg in a mode with no settings is an error, so a new leg type needs a decision before it gets a number.
 - **The current choices:** ocean, the UK container-ship average; air, the UK international factor with radiative forcing (the method page shows it without alongside); truck, the EPA medium- and heavy-duty truck; rail, the EPA rail factor. Changing one, such as dropping radiative forcing, is a one-word config edit.
 - **Ocean legs use the container-ship average.** The UK factors vary about threefold by ship size class (container capacity in TEU), and no source we load gives a ship's TEU, so every ocean leg uses the fleet average.
 - **Licences:** UK factors under the Open Government Licence (attribution required); EPA factors are US government works in the public domain.
 
 ### 6.2 Nodes
 
-**Built.** Nodes are the places that distances are measured between, built by dbt from loaded data, not declared. One model per kind places them (`dim_departure_ports`, `dim_departure_airports`, `dim_mexico_plants` with `map_crossing_plant`, `dim_destination_states`, and the existing `dim_port` and `dim_census_air_ports`), and `dim_nodes` combines them with `node_id` = kind and source key (e.g. `arrival_seaport:2704`, `departure_airport:TPE`). Checked against the loaded data on 2026-10-13: 541 nodes, 100 departure ports, 108 departure airports, 52 arrival seaports, 104 air gateways, 19 crossings, 7 plants and 51 states. The weights are in `fct_node_weights_monthly` (month × node × origin × HS-6 × mode, with a low–high range where estimated); checked read-only on 2026-10-13, air tonnage agrees across departure airports, gateways and states (about 539,700 t) and vessel across departure and arrival ports (about 931,000 t). It includes every node that carries case freight, with a volume weight, so lane distances can be volume-weighted averages and the long tail contributes little. When HS codes or cases change, the nodes and weights change with them.
+**Built.** Nodes are the places that distances are measured between, built by dbt from loaded data, not declared. One model per kind places them (`dim_departure_ports`, `dim_departure_airports`, `dim_mexico_plants` with `map_crossing_plant`, `dim_destination_states`, and the existing `dim_port` and `dim_census_air_ports`), and `dim_nodes` combines them with `node_id` = kind and source key (e.g. `arrival_seaport:2704`, `departure_airport:TPE`). Checked against the loaded data on 2026-10-13: 441 nodes, 100 departure ports, 108 departure airports, 52 arrival seaports, 104 air gateways, 19 crossings, 7 plants and 51 states. The weights are in `fct_node_weights_monthly` (month × node × origin × HS-6 × mode, with a low–high range where estimated); checked read-only on 2026-10-13, air tonnage agrees across departure airports, gateways and states (about 539,700 t) and vessel across departure and arrival ports (about 931,000 t). It includes every node that carries case freight, with a volume weight, so lane distances can be volume-weighted averages and the long tail contributes little. When HS codes or cases change, the nodes and weights change with them.
 
 | Kind | Which nodes | Coordinates | Weight |
 |---|---|---|---|
@@ -703,6 +703,8 @@ Each run writes the `searoute` version into every row, with the passages the rou
   - **Batching (road):** each family of pairs (plant → crossing; crossing, seaport and gateway → state) is requested as a grid of origins × destinations, at most 3,500 cells per request, so the whole run is four requests. Checked live on 2026-10-13: the plant legs return in one request (Juárez plants 10–11 km by road to their crossings; Apodaca → Laredo 423 km).
 
 ## 7. `core` schema (dbt)
+
+Every table and column, with keys and joins, is drawn in [Core Schema](../core-schema.md).
 
 `core` is built by dbt. Staging models (`stg_*`) are views in `core_staging` that rename, cast and filter one raw table each. Every staging model reads only rows whose load is `succeeded`; the Census staging models also read only loads whose HS prefix is in `config/hs_codes.yaml`. Core models are tables. `macros/generate_schema_name.sql` makes dbt write to `core` and `core_staging` exactly.
 

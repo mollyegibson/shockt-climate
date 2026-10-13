@@ -212,8 +212,7 @@ models:
       factors are paired with their own well-to-tank rows; EPA factors (combustion only) take the
       UK well-to-tank ratio of the fuel `epa_vehicle_fuel` assigns. `vehicle_type`, `size_class`,
       `haul` and `radiative_forcing` come from the source labels (`factor_attributes` macros), so
-      `leg_factors` in config/transforms.yaml can name the factor each mode uses;
-      `assert_leg_factors_match_one_factor` checks each names exactly one.
+      the engine's `engine/config/leg_factors.yaml` can name the factor each mode uses.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:

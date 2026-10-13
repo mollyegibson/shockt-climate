@@ -273,49 +273,6 @@ class OverlandWeightConfig(ConfigModel):
         return self
 
 
-VehicleType = Literal[
-    "container_ship",
-    "bulk_carrier",
-    "general_cargo",
-    "ropax_ferry",
-    "refrigerated_cargo",
-    "roro_ferry",
-    "vehicle_carrier",
-    "chemical_tanker",
-    "crude_tanker",
-    "lng_tanker",
-    "lpg_tanker",
-    "products_tanker",
-    "freight_flight",
-    "rail",
-    "hgv",
-    "hgv_refrigerated",
-    "van",
-    "medium_heavy_duty_truck",
-    "aircraft",
-    "waterborne_craft",
-]
-"""The `vehicle_type` values `core.ref_emission_factors` gives the UK and EPA factors."""
-
-
-class LegFactor(ConfigModel):
-    """Which emission factor a mode's legs use, by the factor's structured attributes; an attribute
-    left out doesn't narrow the match."""
-
-    source: Literal["uk_desnz", "epa_hub"]
-    vehicle_type: VehicleType
-    size_class: str | None = Field(default=None, pattern=r"^[a-z0-9_]+$")
-    haul: Literal["domestic_uk", "short_haul_uk", "long_haul_uk", "international"] | None = None
-    radiative_forcing: bool | None = None
-
-
-class LegFactorsConfig(ConfigModel):
-    ocean: LegFactor
-    air: LegFactor
-    truck: LegFactor
-    rail: LegFactor
-
-
 class UnplacedShareConfig(ConfigModel):
     vessel: float = Field(ge=0, le=1)
     air: float = Field(ge=0, le=1)
@@ -353,7 +310,6 @@ class TransformsConfig(ConfigModel):
     overland_weight: OverlandWeightConfig
     mexico_sites: MexicoSitesConfig
     arrival_ports: ArrivalPortsConfig
-    leg_factors: LegFactorsConfig
     departure_nodes: DepartureNodesConfig
     destination_states: DestinationStatesConfig
 

@@ -1,0 +1,65 @@
+"""The ShockT Climate emissions engine: pure functions, plain values in and out, no database."""
+
+from shockt_engine.emissions import (
+    EmissionsError,
+    Leg,
+    LegDistance,
+    SeaLegDistance,
+    break_even_km,
+    lane_intensity,
+    mix_intensity,
+    pair_weighted_distance,
+    sea_leg_distance,
+    weighted_leg_distance,
+)
+from shockt_engine.factors import (
+    Factor,
+    FactorSelectionError,
+    LegFactor,
+    LegFactors,
+    load_leg_factors,
+    select_factor,
+    select_factors,
+)
+from shockt_engine.lanes import LaneInputs, LaneMode, LaneResult, LegResult, lane_legs
+from shockt_engine.shares import (
+    ShareError,
+    Window,
+    WindowSummary,
+    diversion_rate,
+    share_change,
+    shares,
+    window_summary,
+)
+
+__all__ = [
+    "EmissionsError",
+    "Factor",
+    "FactorSelectionError",
+    "LaneInputs",
+    "LaneMode",
+    "LaneResult",
+    "Leg",
+    "LegDistance",
+    "LegFactor",
+    "LegFactors",
+    "LegResult",
+    "SeaLegDistance",
+    "ShareError",
+    "Window",
+    "WindowSummary",
+    "break_even_km",
+    "diversion_rate",
+    "lane_intensity",
+    "lane_legs",
+    "load_leg_factors",
+    "mix_intensity",
+    "pair_weighted_distance",
+    "sea_leg_distance",
+    "select_factor",
+    "select_factors",
+    "share_change",
+    "shares",
+    "weighted_leg_distance",
+    "window_summary",
+]

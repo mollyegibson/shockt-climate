@@ -80,7 +80,10 @@ ShockT Climate is a monorepo. See the [README](./README.md) for what the product
 |---|---|---|
 | `data-pipelines/` | Python (uv), dbt | Source loaders into `raw`, dbt models for `core`. See [its README](./data-pipelines/README.md). |
 | `docs/plans/` | Markdown | Technical designs. Read the relevant plan before changing a component. |
-| `engine/`, `analysis/`, `inputs/`, `content/`, `app/` | Python / TypeScript | Planned; created as the work starts. |
+| `engine/` | Python (uv) | The emissions engine: pure functions, no database. See [its README](./engine/README.md). |
+| `analysis/` | Python (uv), Jupyter | Case notebooks and the reader that loads `core`. See [its README](./analysis/README.md). |
+| `inputs/` | YAML | The cases' analytical inputs: shock windows, causal labels, evidence. |
+| `content/`, `app/` | Markdown / TypeScript | Planned; created as the work starts. |
 
 Contexts communicate through the database layers (`raw`, `core`, `inputs`, `outputs`), never by importing each other's code. See [Domain-Driven Design](./docs/domain-driven-design.md).
 
@@ -115,11 +118,14 @@ When guidance conflicts, higher sources win:
 - [Effect Style](./docs/effect-style.md): Effect patterns for TypeScript
 - [Front-end Code Style](./docs/front-end-code-style.md): React and TypeScript conventions
 - [Data Ingestion Pipelines](./docs/plans/data-ingestion-pipelines.md): the design for `raw` and `core`
+- [Core Schema](./docs/core-schema.md): every `core` table and column, as entity-relationship diagrams
 - [Cost Calculator](./docs/plans/cost-calculator.md): a future plan for freight cost, not in the MVP
+- [Case 1 Analysis](./docs/plans/case-1-analysis.md): the first Case 1 notebook, engine functions and input files
 
 # Contributing
 
 1. Read the relevant plan in `docs/plans/` before starting.
 2. Run lint and tests locally before pushing.
 3. Update documentation when you add a pattern, a term or a configuration value.
-4. Keep commits focused, with messages that explain why.
+4. When a `core` model or distance seed gains, loses or renames a table, column, key or join, update its Mermaid diagrams in the same change: the full diagram in `docs/core-schema.md` and the compact one in `data-pipelines/README.md`.
+5. Keep commits focused, with messages that explain why.

@@ -1,0 +1,25 @@
+# Proposed by the Case 1 notebook; copy what holds into causal_labels.yaml.
+case: tariffs_2025
+status: proposed
+labels:
+- lane: TWN-US
+  observed_response: Taiwan's share of server tonnage rose after the server exclusion, almost all by air.
+  proposed_status: TEMPORAL_ALIGNMENT
+  competing_explanations:
+  - Growth in AI server demand
+  - Taiwan capacity and product mix shifting toward AI racks
+  evidence:
+  - ev_tariffs_cbp_8471_exclusion
+  - ev_derived_server_origin_shares
+  - ev_derived_gear_origin_shares
+  note: Servers were exempt from the reciprocal tariffs, so the alignment is in time only; the exposed
+    gear didn't shift alike.
+- lane: MEX-US
+  observed_response: Mexico's share of server tonnage fell while its tonnage kept growing.
+  proposed_status: TEMPORAL_ALIGNMENT
+  competing_explanations:
+  - Taiwan's growth outpacing Mexico's
+  - USMCA treatment of Mexican-assembled servers not established
+  evidence:
+  - ev_tariffs_eo14232_usmca_exemption
+  - ev_derived_server_origin_shares

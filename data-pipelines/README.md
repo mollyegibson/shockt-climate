@@ -165,9 +165,9 @@ Census ports and Climate TRACE arrival ports get their coast region from the sam
 
 ### The `core` schema
 
-The tables dbt builds in `core`, with their keys, main columns and joins. Every column is described in `dbt/models/core/_core.yml`.
+The tables dbt builds in `core`, with their keys, main columns and joins. [`docs/core-schema.md`](../docs/core-schema.md) has every column; `dbt/models/core/_core.yml` describes them.
 
-**Imports, weights and reference tables.** The three dimensions are the hubs. `ref_emission_factors` is a lookup the engine reads through `leg_factors` in `config/transforms.yaml`; the chokepoint transits are time series compared with the imports by month.
+**Imports, weights and reference tables.** The three dimensions are the hubs. `ref_emission_factors` is a lookup the engine chooses from through `engine/config/leg_factors.yaml`; the chokepoint transits are time series compared with the imports by month.
 
 ```mermaid
 erDiagram

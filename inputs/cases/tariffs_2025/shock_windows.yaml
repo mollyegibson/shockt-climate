@@ -1,0 +1,66 @@
+# Shock windows for Case 1, the 2025 trade-policy shocks. Draft: illustrative windows from the
+# proposal, set by the dated notices in evidence.yaml (docs/plans/case-1-analysis.md, section 4).
+# Windows are whole months, both ends included.
+
+case: tariffs_2025
+status: draft
+author: Molly Gibson
+windows:
+  - id: baseline
+    shock: null
+    type: baseline
+    first_month: 2024-01
+    last_month: 2025-01
+    lanes:
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+    method: illustrative
+    note: The 12 months before the first 2025 tariff order (EO 14194, February 1, 2025).
+    evidence:
+      - ev_tariffs_eo14194_mexico_duty
+
+  - id: anticipation
+    shock: trade_policy_2025
+    type: anticipation
+    first_month: 2025-02
+    last_month: 2025-04
+    lanes:
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+    method: illustrative
+    note: >
+      From the Mexico duty order to the reciprocal tariffs and the exclusion of servers (heading
+      8471) on April 11, backdated to April 5. Electrical gear stayed subject to the tariffs.
+    evidence:
+      - ev_tariffs_eo14194_mexico_duty
+      - ev_tariffs_eo14198_mexico_pause
+      - ev_tariffs_cbp_mexico_implementation
+      - ev_tariffs_eo14232_usmca_exemption
+      - ev_tariffs_section232_semiconductors
+      - ev_tariffs_eo14257_reciprocal_tariff
+      - ev_tariffs_cbp_8471_exclusion
+      - ev_tariffs_cbp_exclusion_omits_gear
+      - ev_tariffs_eo14257_annex2_omits_gear
+
+  - id: response
+    shock: trade_policy_2025
+    type: response
+    first_month: 2025-05
+    last_month: 2025-12
+    lanes:
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+    method: illustrative
+    note: >
+      After the server exclusion, to the end of 2025. Includes the August rate change, which kept
+      the exclusion, and the August 18 section 232 duty on three transformer codes.
+    evidence:
+      - ev_tariffs_cbp_8471_exclusion
+      - ev_tariffs_eo14326_rate_modification
+      - ev_tariffs_section232_derivatives_transformers

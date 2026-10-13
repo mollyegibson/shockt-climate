@@ -1,0 +1,201 @@
+# Evidence records for Case 1, the 2025 tariffs. Draft: the input file schema isn't fixed yet
+# (docs/plans/case-1-analysis.md). Every FACT record quotes or paraphrases its official source,
+# checked against the source's own text on 2026-10-13.
+
+case: tariffs_2025
+status: draft
+author: Molly Gibson
+records:
+  - id: ev_tariffs_eo14257_reciprocal_tariff
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14257 imposed an additional 10% ad valorem duty on imports from 12:01 a.m.
+      EDT on April 5, 2025, and higher country-specific rates from 12:01 a.m. EDT on April 9, 2025.
+    source:
+      title: >
+        Regulating Imports With a Reciprocal Tariff To Rectify Trade Practices That Contribute to
+        Large and Persistent Annual United States Goods Trade Deficits
+      issuer: Executive Office of the President
+      signed: 2025-04-02
+      published: 2025-04-07
+      citation: 90 FR 15041
+      document_number: 2025-06063
+      url: https://www.federalregister.gov/documents/2025/04/07/2025-06063/regulating-imports-with-a-reciprocal-tariff-to-rectify-trade-practices-that-contribute-to-large-and
+    note: >
+      Goods loaded and in transit before each time, and entered later, were exempt from that step.
+      The country-specific rates in Annex I aren't recorded here.
+
+  - id: ev_tariffs_cbp_8471_exclusion
+    basis: FACT
+    source_type: official_document
+    claim: >
+      CBP excluded HTSUS heading 8471, which includes servers (8471.50), from the reciprocal tariffs
+      for goods entered on or after 12:01 a.m. EDT on April 5, 2025, the date the 10% duty began.
+    source:
+      title: >
+        CSMS # 64724565 - UPDATED GUIDANCE - Reciprocal Tariff Exclusion for Specified Products;
+        April 5, 2025 Effective Date
+      issuer: U.S. Customs and Border Protection
+      published: 2025-04-11
+      url: https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3db9e55
+    note: >
+      Issued on April 11, 2025, and applied retroactively to April 5, so servers were listed as
+      excluded within nine days of the April 2 announcement. The underlying presidential
+      memorandum wasn't published in the Federal Register.
+
+  - id: ev_tariffs_eo14326_rate_modification
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14326 replaced the reciprocal rates for listed trading partners from 12:01
+      a.m. EDT seven days after July 31, 2025 (August 7, 2025), subject to all applicable
+      exceptions in Executive Order 14257 as amended, so the heading 8471 exclusion continued.
+    source:
+      title: Further Modifying the Reciprocal Tariff Rates
+      issuer: Executive Office of the President
+      signed: 2025-07-31
+      published: 2025-08-06
+      citation: 90 FR 37963
+      document_number: 2025-15010
+      url: https://www.federalregister.gov/documents/2025/08/06/2025-15010/further-modifying-the-reciprocal-tariff-rates
+    note: The new rates are in Annex I to the order; they aren't recorded here.
+
+  - id: ev_tariffs_eo14194_mexico_duty
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14194 imposed an additional 25% ad valorem duty on products of Mexico,
+      originally from February 4, 2025.
+    source:
+      title: Imposing Duties To Address the Situation at Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-02-01
+      published: 2025-02-07
+      citation: 90 FR 9117
+      document_number: 2025-02407
+      url: https://www.federalregister.gov/documents/2025/02/07/2025-02407/imposing-duties-to-address-the-situation-at-our-southern-border
+
+  - id: ev_tariffs_eo14198_mexico_pause
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14198 paused the 25% duty on products of Mexico until 12:01 a.m. eastern time
+      on March 4, 2025.
+    source:
+      title: Progress on the Situation at Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-02-03
+      published: 2025-02-10
+      citation: 90 FR 9185
+      document_number: 2025-02479
+      url: https://www.federalregister.gov/documents/2025/02/10/2025-02479/progress-on-the-situation-at-our-southern-border
+
+  - id: ev_tariffs_cbp_mexico_implementation
+    basis: FACT
+    source_type: official_document
+    claim: >
+      CBP implemented the additional duty on products of Mexico for goods entered on or after
+      12:01 a.m. EST on March 4, 2025.
+    source:
+      title: >
+        Notice of Implementation of Additional Duties on Products of Mexico Pursuant to the
+        President's Executive Order 14194, Imposing Duties To Address the Situation at Our Southern
+        Border
+      issuer: U.S. Customs and Border Protection
+      published: 2025-03-06
+      citation: 90 FR 11429
+      document_number: 2025-03665
+      url: https://www.federalregister.gov/documents/2025/03/06/2025-03665/notice-of-implementation-of-additional-duties-on-products-of-mexico-pursuant-to-the-presidents
+
+  - id: ev_tariffs_eo14232_usmca_exemption
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14232 exempted from the duty on products of Mexico the articles that enter
+      free of duty as goods of Mexico under general note 11 of the HTSUS (USMCA treatment), for
+      goods entered on or after 12:01 a.m. EST on March 7, 2025.
+    source:
+      title: Amendment to Duties To Address the Flow of Illicit Drugs Across Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-03-06
+      published: 2025-03-11
+      citation: 90 FR 11787
+      document_number: 2025-03991
+      url: https://www.federalregister.gov/documents/2025/03/11/2025-03991/amendment-to-duties-to-address-the-flow-of-illicit-drugs-across-our-southern-border
+    note: >
+      Whether servers assembled in Mexico qualify for USMCA treatment depends on their rules of
+      origin, which this record doesn't establish.
+
+  - id: ev_tariffs_section232_semiconductors
+    basis: FACT
+    source_type: official_document
+    claim: >
+      On April 1, 2025, the Secretary of Commerce initiated a section 232 investigation of imports of
+      semiconductors, semiconductor manufacturing equipment and their derivative products.
+    source:
+      title: >
+        Notice of Request for Public Comments on Section 232 National Security Investigation of
+        Imports of Semiconductors and Semiconductor Manufacturing Equipment
+      issuer: Bureau of Industry and Security, Department of Commerce
+      published: 2025-04-16
+      citation: 90 FR 15950
+      document_number: 2025-06591
+      url: https://www.federalregister.gov/documents/2025/04/16/2025-06591/notice-of-request-for-public-comments-on-section-232-national-security-investigation-of-imports-of
+    note: >
+      An investigation, not a duty. Whether servers count as derivative products, and any
+      resulting duty, isn't established by this record.
+
+  - id: ev_tariffs_cbp_exclusion_omits_gear
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The CBP exclusion list for the reciprocal tariffs names no subheading of heading 8504
+      (transformers) or 8537 (switchgear), so the case's electrical gear stayed subject to them.
+    source:
+      title: >
+        CSMS # 64724565 - UPDATED GUIDANCE - Reciprocal Tariff Exclusion for Specified Products;
+        April 5, 2025 Effective Date
+      issuer: U.S. Customs and Border Protection
+      published: 2025-04-11
+      url: https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3db9e55
+    note: The list names 8471, 8473.30, 8486, 8517.13.00, 8517.62.00, 8523.51.00, 8524, 8528.52.00, 8541 subheadings and 8542.
+
+  - id: ev_tariffs_eo14257_annex2_omits_gear
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Annex II of Executive Order 14257, the products not subject to the reciprocal tariffs, lists
+      no subheading of 8504 or 8537; its chapter 85 entries are semiconductors (8541 and 8542).
+    source:
+      title: >
+        Regulating Imports With a Reciprocal Tariff To Rectify Trade Practices That Contribute to
+        Large and Persistent Annual United States Goods Trade Deficits, Annex II
+      issuer: Executive Office of the President
+      signed: 2025-04-02
+      published: 2025-04-07
+      citation: 90 FR 15041
+      document_number: 2025-06063
+      url: https://www.govinfo.gov/content/pkg/FR-2025-04-07/pdf/2025-06063.pdf
+    note: Read from the subheadings listed in the published annex.
+
+  - id: ev_tariffs_section232_derivatives_transformers
+    basis: FACT
+    source_type: official_document
+    claim: >
+      BIS added 407 HTSUS codes to the steel and aluminum derivative products, among them
+      8504.23.00, 8504.33.00 and 8504.34.00 (and parts under 8504.31 and 8504.90), so section 232
+      steel and aluminum duties apply to their metal content for goods entered on or after 12:01
+      a.m. Eastern Time on August 18, 2025; their other content stays subject to the reciprocal
+      and other tariffs.
+    source:
+      title: Adoption and Procedures of the Section 232 Steel and Aluminum Tariff Inclusions Process
+      issuer: Bureau of Industry and Security, Department of Commerce
+      published: 2025-08-19
+      citation: 90 FR 40326
+      document_number: 2025-15819
+      url: https://www.federalregister.gov/documents/2025/08/19/2025-15819/adoption-and-procedures-of-the-section-232-steel-and-aluminum-tariff-inclusions-process
+    note: >
+      Of the case codes, 850423, 850433 and 850434 were added; 850421, 850422 and 853720 weren't.
+      A later proclamation (91 FR 18201, April 2026) changed how the metal tariffs are assessed;
+      its effect on these codes isn't established here.
