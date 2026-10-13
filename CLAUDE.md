@@ -121,6 +121,7 @@ When guidance conflicts, higher sources win:
 - [Core Schema](./docs/core-schema.md): every `core` table and column, as entity-relationship diagrams
 - [Cost Calculator](./docs/plans/cost-calculator.md): a future plan for freight cost, not in the MVP
 - [Case 1 Analysis](./docs/plans/case-1-analysis.md): the first Case 1 notebook, engine functions and input files
+- [Case 2 Analysis](./docs/plans/case-2-analysis.md): the Panama and Red Sea notebook, its shock-dating rule and new engine functions
 
 # Contributing
 

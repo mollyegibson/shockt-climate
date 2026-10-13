@@ -1,0 +1,47 @@
+# Shock windows for Case 2, the Panama Canal drought and the Red Sea diversions. Draft. The baseline
+# months and each shock's rule are declared choices; the Case 2 notebook applies the rules to
+# PortWatch transits and records the windows they produce in evidence_derived.yaml
+# (docs/plans/case-2-analysis.md, section 4). A rule keeps the runs that start by its `starts_by`
+# month; later runs belong to later events and are reported, not used.
+
+case: panama_red_sea_2023
+status: draft
+author: Molly Gibson
+baseline:
+  first_month: 2022-01
+  last_month: 2023-06
+  note: The months before the Panama Canal Authority's capacity cut from July 30, 2023.
+  evidence:
+    - ev_panama_acp_a35_2023_capacity_cut
+shocks:
+  - id: panama_drought
+    type: effective
+    method: rule
+    rule:
+      chokepoint_id: chokepoint2
+      series: n_total
+      side: below
+      max_gap: 1
+      starts_by: 2024-12
+    note: >
+      Panama Canal transits of all ship types per reported day, below the baseline range. All ship
+      types, because the Canal Authority gave container ships priority for slots.
+    evidence:
+      - ev_panama_acp_a35_2023_capacity_cut
+      - ev_panama_acp_a48_2023_slot_reductions
+      - ev_panama_acp_a19_2024_capacity_increase
+      - ev_panama_acp_a28_2024_return_to_normal
+
+  - id: red_sea_diversions
+    type: effective
+    method: rule
+    rule:
+      chokepoint_id: chokepoint4
+      series: n_container
+      side: below
+      max_gap: 1
+      starts_by: 2024-12
+    note: Bab el-Mandeb container ship transits per reported day, below the baseline range.
+    evidence:
+      - ev_redsea_maersk_hapag_pause_2023_12
+      - ev_redsea_maersk_cape_diversion_2024_01

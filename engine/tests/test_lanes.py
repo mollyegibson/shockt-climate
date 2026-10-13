@@ -1,6 +1,6 @@
 import pytest
 
-from shockt_engine import LaneInputs, lane_legs
+from shockt_engine import EmissionsError, LaneInputs, lane_legs
 
 FACTORS = {"ocean": 0.02, "air": 1.0, "truck": 0.16, "rail": 0.02}
 
@@ -43,6 +43,34 @@ def test_vessel_lane_uses_observed_sea_distances_where_it_has_them() -> None:
 
     assert lane.legs[0].km == 11_000.0
     assert lane.legs[0].observed_share == 1.0
+
+
+def test_vessel_lane_can_go_inland_by_rail() -> None:
+    inputs = LaneInputs(
+        weights={
+            "departure_port": {"kao": 1.0},
+            "arrival_seaport": {"la": 1.0},
+            "destination_state": {"va": 1.0},
+        },
+        distances={
+            "sea": {("kao", "la"): 11_000.0},
+            "road": {("la", "va"): 4_000.0},
+            "rail": {("la", "va"): 4_500.0},
+        },
+        factors=FACTORS,
+    )
+
+    lane = lane_legs("vessel", inputs, inland="rail")
+
+    assert (lane.legs[1].factor_mode, lane.legs[1].km) == ("rail", 4_500.0)
+    assert lane.kg_co2e_per_t == pytest.approx(11_000.0 * 0.02 + 4_500.0 * 0.02)
+
+
+def test_only_vessel_lanes_go_inland_by_rail() -> None:
+    inputs = LaneInputs(weights={}, distances={}, factors=FACTORS)
+
+    with pytest.raises(EmissionsError):
+        lane_legs("air", inputs, inland="rail")
 
 
 def test_mexico_rail_lane_starts_at_each_crossings_plant_by_truck() -> None:

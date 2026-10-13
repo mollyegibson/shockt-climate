@@ -1,0 +1,105 @@
+# Evidence records for Case 2, the Panama Canal drought and the Red Sea diversions. Draft: the input
+# file schema isn't fixed yet (docs/plans/case-2-analysis.md). Every FACT record quotes or
+# paraphrases its source, checked against the source's own text on 2026-10-13.
+
+case: panama_red_sea_2023
+status: draft
+author: Molly Gibson
+records:
+  - id: ev_panama_acp_a35_2023_capacity_cut
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The Panama Canal Authority set daily transit capacity at an average of 32 vessels from July
+      30, 2023, until further notice (10 in the Neopanamax locks, 22 in the Panamax locks), and gave
+      full container vessels priority over other vessel types for Panamax slots in booking periods 2
+      and 3 (from August 19 and August 1, 2023).
+    source:
+      title: >
+        Advisory to Shipping No. A-35-2023: Additional Measures to Mitigate the Extended Dry Season
+        and Reduction in Precipitation in the Canal Watershed
+      issuer: Panama Canal Authority
+      published: 2023-07-25
+      url: https://pancanal.com/wp-content/uploads/2023/01/ADV35-2023-Additional-Measures-to-Mitigate-the-Extended-Dry-Season-and-Reduction-in-Precipitation-in-the-Canal-Watershed.pdf
+    note: >
+      The container priority is consistent with PortWatch container transits at Panama holding
+      steady while total transits fell (docs/plans/case-2-analysis.md, section 2).
+
+  - id: ev_panama_acp_a48_2023_slot_reductions
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The Panama Canal Authority reduced daily booking slots to 25 (November 3–6, 2023), 24
+      (November 7–30), 22 (December 2023), 20 (January 2024) and 18 from February 1, 2024 until
+      further notice, to postpone draft reductions below the current 13.41 m (44 feet) TFW. It
+      recorded October 2023 precipitation as the lowest since 1950 (41% below).
+    source:
+      title: >
+        Advisory to Shipping No. A-48-2023: Reduction in Transits Due to the Ongoing Deficit in
+        Precipitation in the Canal Watershed
+      issuer: Panama Canal Authority
+      published: 2023-10-30
+      url: https://pancanal.com/wp-content/uploads/2023/01/ADV48-2023-Reduction-in-Transits-Due-to-the-Ongoing-Deficit-in-Precipitation-in-the-Canal-Watershed.pdf
+
+  - id: ev_panama_acp_a19_2024_capacity_increase
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The Panama Canal Authority raised daily transits to 33 for booking dates from July 11, 2024 and
+      to 34 from July 22, 2024, and the Neopanamax draft limit to 14.02 m (46.0 feet) from June 15,
+      2024.
+    source:
+      title: >
+        Advisory to Shipping No. A-19-2024: Increase in the Number of Neopanamax and Panamax Booking
+        Slots, Draft Adjustment and Transit Reservation System
+      issuer: Panama Canal Authority
+      published: 2024-06-10
+      url: https://pancanal.com/wp-content/uploads/2024/01/ADV-19-2024-Increase-in-the-Number-of-Neopanamax-and-Panamax-Booking-Slots-Draft-Adjustment-and-Other-Information-Regarding-the-Transit-Reservation-System.pdf
+
+  - id: ev_panama_acp_a28_2024_return_to_normal
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The Panama Canal Authority raised the Neopanamax draft limit to 15.24 m (50.0 feet) TFW
+      effective August 15, 2024, and daily booking slots to 36 (10 Neopanamax, 20 Super, 6 Regular)
+      for booking dates from September 1, 2024, describing it as a commitment to return to normal
+      operating conditions.
+    source:
+      title: >
+        Advisory to Shipping No. A-28-2024: Increase in the Maximum Allowable Draft in the
+        Neopanamax Locks and Modifications to the Transit Reservation (Booking) System
+      issuer: Panama Canal Authority
+      published: 2024-08-15
+      url: https://pancanal.com/wp-content/uploads/2024/08/ADV28-2024-Increase-in-the-Maximum-Allowable-Draft-in-the-Neopanamax-Locks-and-Modifications-to-the-Transit-Reservation-Booking-System.pdf
+
+  - id: ev_redsea_maersk_hapag_pause_2023_12
+    basis: FACT
+    source_type: company_statement
+    claim: >
+      Maersk said on December 15, 2023 that it would pause all vessel passages through the Red Sea
+      until further notice, telling vessels due to transit the Bab al-Mandab Strait to pause their
+      journeys, after a near-miss involving the Maersk Gibraltar on December 14 and another attack
+      on December 15. Hapag-Lloyd suspended its Red Sea passages through December 18.
+    source:
+      title: Maersk, Hapag-Lloyd pause shipments through the Red Sea
+      issuer: Argus Media
+      published: 2023-12-15
+      url: https://www.argusmedia.com/en/news-and-insights/latest-market-news/2519660-maersk-hapag-lloyd-pause-shipments-through-the-red-sea
+    note: >
+      A fact about what the carriers said, reported by a news outlet; the carriers' own pages
+      couldn't be retrieved on 2026-10-13.
+
+  - id: ev_redsea_maersk_cape_diversion_2024_01
+    basis: FACT
+    source_type: company_statement
+    claim: >
+      Maersk said on January 5, 2024 that "all Maersk vessels due to transit the Red Sea/Gulf of
+      Aden will be diverted south" around the Cape of Good Hope "for the foreseeable future".
+    source:
+      title: Shipping giant Maersk to avoid Red Sea routes for 'foreseeable future'
+      issuer: Al Jazeera
+      published: 2024-01-05
+      url: https://www.aljazeera.com/news/2024/1/5/shipping-giant-maersk-to-avoid-red-sea-routes-for-foreseeable-future
+    note: >
+      A fact about what Maersk said, reported by a news outlet; Maersk's own page couldn't be
+      retrieved on 2026-10-13.

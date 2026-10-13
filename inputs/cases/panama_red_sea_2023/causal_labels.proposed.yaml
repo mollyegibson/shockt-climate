@@ -1,0 +1,34 @@
+# Proposed by the Case 2 notebook; copy what holds into causal_labels.yaml.
+case: panama_red_sea_2023
+status: proposed
+labels:
+- lane: Asia → US East Coast via Suez
+  observed_response: Observed voyage distances rose to near the Cape route's.
+  proposed_status: DIRECT_CAUSAL
+  competing_explanations:
+  - The Panama restrictions in the same months, for lanes that could use either
+  evidence:
+  - ev_redsea_maersk_cape_diversion_2024_01
+  - ev_derived_case2_voyage_distance
+  - ev_derived_case2_passage_tonnage
+  note: Holds for the Suez lanes; most of the gear's tonnage is on Panama lanes.
+- lane: Asia → US East and Gulf coasts via Panama
+  observed_response: Observed voyage distances rose only slightly.
+  proposed_status: TEMPORAL_ALIGNMENT
+  competing_explanations:
+  - Container ships kept priority for Panama slots
+  - Port mix within the lane
+  evidence:
+  - ev_panama_acp_a35_2023_capacity_cut
+  - ev_derived_case2_voyage_distance
+- lane: Asia → US, gear by sea
+  observed_response: The West Coast's share of arrivals rose.
+  proposed_status: CONTRIBUTING_FACTOR
+  competing_explanations:
+  - Growth in freight bound for western states (data center build-out)
+  - East Coast port labor dispute risk in 2024
+  evidence:
+  - ev_derived_case2_coast_shares
+  - ev_derived_case2_east_bound_west_share
+  - ev_derived_case2_state_tonnage
+  note: Downgrade to TEMPORAL_ALIGNMENT if East-bound freight didn't shift west.

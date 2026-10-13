@@ -1,5 +1,6 @@
 """The ShockT Climate emissions engine: pure functions, plain values in and out, no database."""
 
+from shockt_engine.decomposition import MixCell, MixDecomposition, mix_decomposition
 from shockt_engine.emissions import (
     EmissionsError,
     Leg,
@@ -21,7 +22,14 @@ from shockt_engine.factors import (
     select_factor,
     select_factors,
 )
-from shockt_engine.lanes import LaneInputs, LaneMode, LaneResult, LegResult, lane_legs
+from shockt_engine.lanes import (
+    InlandMode,
+    LaneInputs,
+    LaneMode,
+    LaneResult,
+    LegResult,
+    lane_legs,
+)
 from shockt_engine.shares import (
     ShareError,
     Window,
@@ -31,11 +39,18 @@ from shockt_engine.shares import (
     shares,
     window_summary,
 )
+from shockt_engine.shocks import (
+    OutsideRange,
+    ShockDatingError,
+    months_outside_range,
+    passage_used,
+)
 
 __all__ = [
     "EmissionsError",
     "Factor",
     "FactorSelectionError",
+    "InlandMode",
     "LaneInputs",
     "LaneMode",
     "LaneResult",
@@ -44,8 +59,12 @@ __all__ = [
     "LegFactor",
     "LegFactors",
     "LegResult",
+    "MixCell",
+    "MixDecomposition",
+    "OutsideRange",
     "SeaLegDistance",
     "ShareError",
+    "ShockDatingError",
     "Window",
     "WindowSummary",
     "break_even_km",
@@ -53,8 +72,11 @@ __all__ = [
     "lane_intensity",
     "lane_legs",
     "load_leg_factors",
+    "mix_decomposition",
     "mix_intensity",
+    "months_outside_range",
     "pair_weighted_distance",
+    "passage_used",
     "sea_leg_distance",
     "select_factor",
     "select_factors",

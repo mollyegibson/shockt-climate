@@ -1,10 +1,10 @@
-"""The steps of the Case 1 notebook, from data frames to the engine and back: supply by window,
+"""The steps the case notebooks share, from data frames to the engine and back: supply by window,
 shares and their changes, lane emissions per tonne, the supply mix and the derived evidence
 records. The arithmetic is the engine's; this module only shapes the data for it."""
 
 import subprocess
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -137,8 +137,12 @@ def lane_inputs(
     codes: Sequence[str],
     mode: LaneMode,
     window: Window,
+    coast: str | None = None,
+    states: Collection[str] | None = None,
 ) -> LaneInputs:
-    """The node weights, distances and factors one origin's lane in `mode` uses in `window`."""
+    """The node weights, distances and factors one origin's lane in `mode` uses in `window`.
+    `coast` keeps only the US arrival nodes on that coast region, and the departure ports' share
+    bound for it; `states` keeps only those destination states (two-letter codes)."""
     in_window = pl.col("month").is_between(window.first, window.last)
     weights = context.weights.filter(
         in_window
@@ -147,11 +151,14 @@ def lane_inputs(
     )
     by_kind: dict[str, dict[str, float]] = {}
     for kind, node_mode in LANE_NODE_MODES[mode].items():
-        part = (
-            weights.filter((pl.col("kind") == kind) & (pl.col("mode") == node_mode))
-            .group_by("node_id")
-            .agg(pl.col("weight_t").sum())
-        )
+        part = weights.filter((pl.col("kind") == kind) & (pl.col("mode") == node_mode))
+        if coast is not None and kind == "departure_port":
+            part = part.filter(pl.col("lane_coast_region") == coast)
+        if coast is not None and kind in ("arrival_seaport", "air_gateway"):
+            part = part.filter(pl.col("coast_region") == coast)
+        if states is not None and kind == "destination_state":
+            part = part.filter(pl.col("node_id").is_in([f"destination_state:{s}" for s in states]))
+        part = part.group_by("node_id").agg(pl.col("weight_t").sum())
         by_kind[kind] = dict(
             zip(part["node_id"].to_list(), part["weight_t"].to_list(), strict=True)
         )

@@ -2,7 +2,7 @@
 US; its legs run from where the freight leaves to the state it's bound for:
 
 - air: departure airport → US air gateway (air), gateway → destination state (truck)
-- vessel: departure port → US seaport (ocean), seaport → destination state (truck)
+- vessel: departure port → US seaport (ocean), seaport → destination state (truck, or rail)
 - truck: Mexican plant → border crossing (truck), crossing → destination state (truck)
 - rail: Mexican plant → border crossing (truck), crossing → destination state (rail)
 
@@ -26,6 +26,7 @@ from shockt_engine.emissions import (
 from shockt_engine.factors import Mode
 
 LaneMode = Literal["air", "vessel", "truck", "rail"]
+InlandMode = Literal["truck", "rail"]
 Network = Literal["sea", "air", "road", "rail"]
 
 NodeWeights = Mapping[str, float]
@@ -102,8 +103,11 @@ def _plant_leg(inputs: LaneInputs) -> LegResult | None:
     return LegResult("plant → crossing", "truck", distance.km, inputs.factors["truck"], covered)
 
 
-def lane_legs(mode: LaneMode, inputs: LaneInputs) -> LaneResult:
-    """The legs of a lane in `mode`, with their distances and factors."""
+def lane_legs(mode: LaneMode, inputs: LaneInputs, inland: InlandMode = "truck") -> LaneResult:
+    """The legs of a lane in `mode`, with their distances and factors. `inland` is how vessel
+    freight travels from the seaport to the destination state; air freight goes by truck."""
+    if inland == "rail" and mode != "vessel":
+        raise EmissionsError(f"only vessel lanes have a rail inland leg, not {mode}")
     legs: list[LegResult] = []
     missing: list[str] = []
     if mode == "air":
@@ -136,7 +140,12 @@ def lane_legs(mode: LaneMode, inputs: LaneInputs) -> LaneResult:
         )
         legs.append(
             _independent_leg(
-                inputs, "seaport → state", "road", "truck", "arrival_seaport", "destination_state"
+                inputs,
+                "seaport → state",
+                "road" if inland == "truck" else "rail",
+                inland,
+                "arrival_seaport",
+                "destination_state",
             )
         )
     else:

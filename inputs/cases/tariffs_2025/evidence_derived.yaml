@@ -3,7 +3,7 @@ case: tariffs_2025
 status: draft
 generated_by:
   notebook: analysis/case1/case1_tariffs_2025.ipynb
-  git_commit: d9ec7a4-dirty
+  git_commit: e097cd6-dirty
   windows_file: inputs/cases/tariffs_2025/shock_windows.yaml
   run_at: '2026-10-13'
   data:
@@ -17,16 +17,16 @@ generated_by:
     code_versions: a9aec6f-dirty
   - dataset: census_hs
     partitions: 392
-    latest_load: '2026-10-12 22:36:31.151388+00'
-    code_versions: 89ea1ba, ae62e94-dirty
+    latest_load: '2026-10-13 19:50:48.911328+00'
+    code_versions: e097cd6
   - dataset: census_porths
     partitions: 392
-    latest_load: '2026-10-12 22:32:46.809638+00'
-    code_versions: 89ea1ba, ae62e94-dirty
+    latest_load: '2026-10-13 19:58:35.528908+00'
+    code_versions: e097cd6
   - dataset: census_statehs
     partitions: 392
-    latest_load: '2026-10-12 22:33:12.330056+00'
-    code_versions: 89ea1ba, ae62e94-dirty
+    latest_load: '2026-10-13 20:06:18.115574+00'
+    code_versions: e097cd6
   - dataset: climatetrace_voyages
     partitions: 5
     latest_load: '2026-10-12 22:52:15.201059+00'
@@ -73,13 +73,13 @@ records:
     - THA
     - VNM
   values:
-    THA: 0.023
-    CHN: -0.0136
-    MEX: -0.2193
     KOR: -0.0003
     VNM: -0.0014
-    other: -0.0045
+    MEX: -0.2193
     TWN: 0.2161
+    CHN: -0.0136
+    THA: 0.023
+    other: -0.0045
 - id: ev_derived_server_mix_intensity
   basis: DERIVED
   claim: The emissions per tonne of US server supply averaged 3.47 t CO2e in the baseline and 6.28 t in
@@ -155,10 +155,10 @@ records:
     - THA
     - VNM
   values:
-    THA: 0.0178
-    CHN: 0.0106
-    MEX: -0.0211
     KOR: 0.0021
     VNM: 0.0011
-    other: -0.007
+    MEX: -0.0211
     TWN: -0.0034
+    CHN: 0.0106
+    THA: 0.0178
+    other: -0.007

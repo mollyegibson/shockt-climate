@@ -81,11 +81,11 @@ def supply(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
 
 
 def node_weights(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
-    """Node weights by month, origin, HS-6 and mode, with each node's kind."""
+    """Node weights by month, origin, HS-6 and mode, with each node's kind and coast region."""
     return frame(
         conn,
         """
-        select w.month, w.node_id, n.kind, w.census_cty_code, w.hs6, w.mode,
+        select w.month, w.node_id, n.kind, n.coast_region, w.census_cty_code, w.hs6, w.mode,
             w.lane_coast_region, w.weight_t::float8 as weight_t
         from core.fct_node_weights_monthly as w
         join core.dim_nodes as n using (node_id)
@@ -157,4 +157,80 @@ def current_loads(conn: psycopg.Connection, datasets: Sequence[str]) -> pl.DataF
         order by dataset
         """,
         {"datasets": list(datasets)},
+    )
+
+
+def chokepoint_transits(conn: psycopg.Connection) -> pl.DataFrame:
+    """Monthly transits by chokepoint: all ship types and container ships, with the days
+    PortWatch reported in the month."""
+    return frame(
+        conn,
+        """
+        select month, chokepoint_id, chokepoint_name, days_reported, n_total, n_container
+        from core.fct_chokepoint_transits_monthly
+        order by chokepoint_id, month
+        """,
+    )
+
+
+def voyage_lanes(conn: psycopg.Connection) -> pl.DataFrame:
+    """Container voyages by month, origin country and US coast region, with their distances."""
+    return frame(
+        conn,
+        """
+        select month, origin_iso3, origin_region, end_coast_region, n_voyages,
+            total_distance_km::float8 as total_distance_km,
+            median_distance_km::float8 as median_distance_km
+        from core.agg_voyage_lanes_monthly
+        """,
+    )
+
+
+def imports_by_port(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly air and vessel tonnage by origin, HS-6, US port and its coast region, for the
+    configured origins."""
+    return frame(
+        conn,
+        """
+        select p.month, p.census_cty_code, c.iso3, c.region, p.hs6, p.mode, p.port_code,
+            p.coast_region, p.weight_t::float8 as weight_t
+        from core.fct_imports_port_monthly as p
+        join core.dim_country as c using (census_cty_code)
+        where p.hs6 = any(%(hs6)s) and p.mode in ('air', 'vessel') and p.weight_t > 0
+            and c.region <> 'other'
+        """,
+        {"hs6": list(hs6)},
+    )
+
+
+def imports_by_state(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly air and vessel tonnage by origin, HS-6 and state of destination, for the
+    configured origins."""
+    return frame(
+        conn,
+        """
+        select s.month, s.census_cty_code, c.iso3, c.region, s.hs6, s.mode, s.state,
+            s.weight_t::float8 as weight_t
+        from core.fct_imports_state_monthly as s
+        join core.dim_country as c using (census_cty_code)
+        where s.hs6 = any(%(hs6)s) and s.mode in ('air', 'vessel') and s.weight_t > 0
+            and c.region <> 'other'
+        """,
+        {"hs6": list(hs6)},
+    )
+
+
+def state_port_vessel(conn: psycopg.Connection, region: str) -> pl.DataFrame:
+    """All goods: quarterly vessel tonnage from one origin region by state of destination and
+    the coast region of the port of unlading."""
+    return frame(
+        conn,
+        """
+        select q.quarter, q.state, q.unlading_coast_region, sum(q.weight_t)::float8 as weight_t
+        from core.fct_imports_state_port_quarterly as q
+        join core.dim_country as c using (census_cty_code)
+        where q.mode = 'vessel' and c.region = %(region)s
+        group by q.quarter, q.state, q.unlading_coast_region
+        """,
+        {"region": region},
     )

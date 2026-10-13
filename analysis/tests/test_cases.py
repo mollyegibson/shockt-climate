@@ -5,7 +5,7 @@ import polars as pl
 import pytest
 from shockt_engine import Window
 
-from shockt_analysis import case1
+from shockt_analysis import cases
 
 WINDOWS = [
     Window("baseline", date(2024, 1, 1), date(2024, 2, 1)),
@@ -36,11 +36,11 @@ def test_load_windows_reads_months(tmp_path: Path) -> None:
         "windows:\n  - id: baseline\n    first_month: 2024-01\n    last_month: 2025-01\n"
     )
 
-    assert case1.load_windows(path) == [Window("baseline", date(2024, 1, 1), date(2025, 1, 1))]
+    assert cases.load_windows(path) == [Window("baseline", date(2024, 1, 1), date(2025, 1, 1))]
 
 
 def test_with_window_leaves_months_outside_every_window_null() -> None:
-    windowed = case1.with_window(supply_frame(), WINDOWS)
+    windowed = cases.with_window(supply_frame(), WINDOWS)
 
     assert windowed.filter(pl.col("month") == date(2024, 4, 1))["window"].item() is None
     assert windowed.filter(pl.col("month") == date(2024, 3, 1))["window"].unique().to_list() == [
@@ -49,9 +49,9 @@ def test_with_window_leaves_months_outside_every_window_null() -> None:
 
 
 def test_window_shares_are_within_each_window() -> None:
-    monthly = case1.monthly_supply(supply_frame(), ["847150"], ["TWN", "MEX"])
+    monthly = cases.monthly_supply(supply_frame(), ["847150"], ["TWN", "MEX"])
 
-    shares = case1.window_shares(monthly, WINDOWS, ["origin_group"])
+    shares = cases.window_shares(monthly, WINDOWS, ["origin_group"])
 
     baseline = dict(
         shares.filter(pl.col("window") == "baseline").select("origin_group", "share").iter_rows()
@@ -69,7 +69,7 @@ def test_mix_by_month_weights_lanes_by_tonnes() -> None:
         }
     )
 
-    mix = case1.mix_by_month(supply_frame(), ["847150"], WINDOWS, lanes)
+    mix = cases.mix_by_month(supply_frame(), ["847150"], WINDOWS, lanes)
 
     march = mix.filter(pl.col("month") == date(2024, 3, 1))
     assert march["kg_co2e_per_t"].item() == pytest.approx((30 * 12_000 + 10 * 200) / 40)
