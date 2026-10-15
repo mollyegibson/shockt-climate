@@ -19,7 +19,7 @@ The short, citable form of what we hold each other to in review.
 ## Data
 
 9. **`raw` is never edited by hand.** Every change is a load recorded in `raw.load_manifest`, with its filters in `params` and its source file in the archive.
-10. **No hand-entered data.** Every value in the database comes from a source through a loader, or from checked-in code (a dbt model or macro, or a `shockt ref` generator). Seeds are generated, never edited; declared choices live in `config/`. See CLAUDE.md, Data Provenance.
+10. **No hand-entered data.** Every value in the database comes from a source through a loader, or from checked-in code (a dbt model or macro, or a `shockt ref` generator). Seeds are generated, never edited; declared choices live in `config/`. See AGENTS.md, Data Provenance.
 11. **Migrations are append-only once applied.** A change to an applied migration goes in a new migration, with a sequential `--rev-id`. The database owner applies them.
 
 ## Configuration and secrets
