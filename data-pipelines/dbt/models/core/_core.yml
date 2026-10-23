@@ -499,3 +499,46 @@ models:
               arguments:
                 to: ref('dim_nodes')
                 field: node_id
+
+  - name: fct_eu_imports_monthly
+    description: >
+      EU imports from extra-EU partners (Eurostat Comext DS-059334) by month, HS-6, reporting
+      member state, partner country and transport mode. `transport_mode` maps the Comext code to
+      a label: 1→sea, 2→rail, 3→road, 4→air, 8→inland_waterway, else other.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs6", "reporter", "partner", "transport_mode_code"]
+    columns:
+      - name: transport_mode
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["sea", "rail", "road", "air", "inland_waterway", "other"]
+
+  - name: agg_eu_imports_mode_monthly
+    description: >
+      EU imports summed across reporting member states: month × HS-6 × partner × transport mode,
+      with the count of reporters that contributed.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "hs6", "partner", "transport_mode"]
+
+  - name: fct_ship_fuel_intensities
+    description: >
+      Per-ship annual fuel intensity from EMSA THETIS-MRV (full reports only), with a flag for
+      whether the IMO number appears in the Climate TRACE container-ship voyages. Use
+      `in_voyage_data` to gauge overlap before deciding whether MRV is a primary fuel source or
+      validation only.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["imo_number", "reporting_year"]
+    columns:
+      - name: imo_number
+        data_tests: [not_null]
+      - name: reporting_year
+        data_tests: [not_null]
+      - name: total_co2_mt
+        data_tests: [not_null]

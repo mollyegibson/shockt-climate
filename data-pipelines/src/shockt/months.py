@@ -47,5 +47,15 @@ class MonthRange:
                     quarters.append((year, quarter))
         return quarters
 
+    def months(self) -> list[str]:
+        """Every 'YYYY-MM' month in the range, inclusive."""
+        result: list[str] = []
+        year, month = int(self.first[:4]), int(self.first[5:7])
+        end_year, end_month = int(self.last[:4]), int(self.last[5:7])
+        while (year, month) <= (end_year, end_month):
+            result.append(f"{year:04d}-{month:02d}")
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        return result
+
     def as_params(self) -> dict[str, str]:
         return {"first_month": self.first, "last_month": self.last}

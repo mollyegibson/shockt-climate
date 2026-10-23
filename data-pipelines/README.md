@@ -161,6 +161,23 @@ uv run shockt ingest uk-ghg-factors   # every row of the UK flat file
 uv run shockt ingest epa-ghg-hub      # EPA Hub Tables 8 (transport) and 11 (GWPs)
 ```
 
+EMSA THETIS-MRV per-ship fuel consumption and emissions come from the THETIS-MRV public API, one reporting year per load. No API key needed. The xlsx is archived unchanged, then parsed:
+
+```sh
+uv run shockt ingest thetis-mrv                       # every year from start_year to the latest available
+uv run shockt ingest thetis-mrv --skip-existing       # only years not yet loaded
+uv run shockt ingest thetis-mrv --from-archive        # re-parse archived xlsx files
+uv run shockt ingest thetis-mrv --from-year 2023 --to-year 2024
+```
+
+Eurostat Comext extra-EU imports by transport mode come from the SDMX 2.1 REST API, one month × HS-6 code per partition. No API key needed. Partners are the configured origins; reporters are the EU-27 member states in `config/eu_reporters.yaml`:
+
+```sh
+uv run shockt ingest comext --from 2022-01            # all months through now, for every case HS-6 code
+uv run shockt ingest comext --from 2022-01 --skip-existing
+uv run shockt ingest comext --from 2024-01 --to 2024-06 --from-archive
+```
+
 Census ports and Climate TRACE arrival ports get their coast region from the same rule, `macros/coast_region.sql`, applied to each port's coordinates. `dim_port` places Census ports from BTS border crossings, OurAirports and GeoNames; ports it can't place are `unknown`, and a test bounds their share of case tonnage.
 
 ### The `core` schema
@@ -300,6 +317,39 @@ erDiagram
   dim_climatetrace_ports ||--o{ fct_voyages : "end_port_id"
   dim_country ||--o{ fct_voyages : "start_iso3 = iso3"
   dim_country ||--o{ agg_voyage_lanes_monthly : "origin_iso3 = iso3"
+  fct_eu_imports_monthly ||--o{ agg_eu_imports_mode_monthly : "summed across reporters"
+  fct_voyages ||..o{ fct_ship_fuel_intensities : "IMO from asset_identifier"
+```
+
+**EU imports and ship fuel intensities.** Eurostat Comext extra-EU imports by transport mode, and EMSA THETIS-MRV per-ship fuel intensity joined to Climate TRACE voyages by IMO number.
+
+```mermaid
+erDiagram
+  fct_eu_imports_monthly {
+    date month PK
+    text hs6 PK
+    text reporter PK
+    text partner PK
+    text transport_mode_code PK
+    text transport_mode
+    numeric quantity_kg
+    numeric value_eur
+  }
+  agg_eu_imports_mode_monthly {
+    date month PK
+    text hs6 PK
+    text partner PK
+    text transport_mode PK
+    numeric quantity_kg
+    numeric value_eur
+  }
+  fct_ship_fuel_intensities {
+    text imo_number PK
+    int reporting_year PK
+    text ship_type
+    numeric total_co2_mt
+    bool in_voyage_data
+  }
 ```
 
 **Nodes, weights and distances.** Each location model places one kind of node; `dim_nodes` combines them with the arrival seaports and crossings from `dim_port` and the air gateways from `dim_census_air_ports`, keyed `kind:source_key`. The `seed_*` distance tables load into `raw` from the `shockt ref` generators.

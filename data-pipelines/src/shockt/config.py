@@ -213,6 +213,30 @@ class RailDistancesConfig(ConfigModel):
     """Farthest a node may be from track; pairs with an end farther away get no rail distance."""
 
 
+class ThetisMrvConfig(ConfigModel):
+    downloadable_files_url: str
+    download_url_template: str
+    """URL with ``{year}`` and ``{version}`` placeholders."""
+    start_year: int
+    end_year: int | None = None
+
+
+class ComextConfig(ConfigModel):
+    base_url: str
+    """Comext SDMX 2.1 REST API base."""
+    dataset: str
+    flow: str
+    indicators: list[str]
+    timeout_seconds: float
+    partner_overrides: dict[str, str | None] = Field(default_factory=dict)
+    """Map non-standard ISO-2 codes to Comext partner codes (or None to drop)."""
+
+
+class EuReportersConfig(ConfigModel):
+    reporters: list[str]
+    """ISO 3166-1 alpha-2 codes of EU member states used as Comext reporters."""
+
+
 class DistancesConfig(ConfigModel):
     sea: SeaDistancesConfig
     road: RoadDistancesConfig
@@ -230,6 +254,8 @@ class SourcesConfig(ConfigModel):
     census_schedules: CensusSchedulesConfig
     reference_sources: ReferenceSourcesConfig
     emission_factors: EmissionFactorsConfig
+    thetis_mrv: ThetisMrvConfig
+    comext: ComextConfig
     distances: DistancesConfig
 
 
@@ -358,6 +384,11 @@ def hs_codes_config() -> HsCodesConfig:
 @cache
 def origins_config() -> OriginsConfig:
     return OriginsConfig.model_validate(_load_yaml(CONFIG_DIR / "origins.yaml"))
+
+
+@cache
+def eu_reporters_config() -> EuReportersConfig:
+    return EuReportersConfig.model_validate(_load_yaml(CONFIG_DIR / "eu_reporters.yaml"))
 
 
 @cache

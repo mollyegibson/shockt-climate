@@ -12,7 +12,7 @@ import typer
 
 from shockt import dbt, http, manifest
 from shockt.archive import NeonArchive, object_key
-from shockt.config import hs_codes_config, origins_config, sources_config
+from shockt.config import eu_reporters_config, hs_codes_config, origins_config, sources_config
 from shockt.db import connect
 from shockt.http import make_client
 from shockt.loading import ParsedSource, Target
@@ -35,10 +35,12 @@ from shockt.sources import (
     census_concordance,
     census_state_port,
     climatetrace,
+    comext,
     denue,
     ghg_factors,
     portwatch,
     reference,
+    thetis_mrv,
 )
 
 app = typer.Typer(no_args_is_help=True, help="ShockT Climate ingestion pipelines.")
@@ -656,6 +658,135 @@ def ingest_denue(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
         f"{denue.DATASET}: {result.row_count:,} establishments "
         f"in {time.monotonic() - started:.1f}s{note}"
     )
+
+
+@ingest_app.command("thetis-mrv")
+def ingest_thetis_mrv(
+    start_year: Annotated[
+        int | None, typer.Option("--from-year", help="First reporting year. Default: config.")
+    ] = None,
+    end_year: Annotated[
+        int | None,
+        typer.Option("--to-year", help="Last reporting year. Default: latest available."),
+    ] = None,
+    skip_existing: Annotated[
+        bool, typer.Option(help="Skip years that already have a succeeded load.")
+    ] = False,
+    from_archive: Annotated[
+        bool, typer.Option(help="Re-parse archived xlsx instead of downloading.")
+    ] = False,
+) -> None:
+    """Load EMSA THETIS-MRV per-ship fuel and emissions, one reporting year at a time."""
+    settings = get_settings()
+    config = sources_config().thetis_mrv
+    archive = NeonArchive(settings)
+    first_year = start_year or config.start_year
+
+    with make_client(timeout_seconds=300) as client, connect(settings) as conn:
+        if from_archive:
+            archived = manifest.archived_partitions(conn, thetis_mrv.DATASET)
+        else:
+            versions = thetis_mrv.available_versions(client, config)
+            if not versions:
+                typer.echo("No reporting years available from THETIS-MRV")
+                return
+
+        last_year = end_year or config.end_year
+        if last_year is None:
+            if from_archive:
+                last_year = max(int(k) for k in archived) if archived else first_year
+            else:
+                last_year = max(versions)
+            typer.echo(f"Latest reporting year: {last_year}")
+
+        done = manifest.succeeded_partitions(conn, thetis_mrv.DATASET) if skip_existing else set()
+        for year in range(first_year, last_year + 1):
+            if str(year) in done:
+                typer.echo(f"{thetis_mrv.DATASET} {year}: skipped (already loaded)")
+                continue
+            if from_archive:
+                if str(year) not in archived:
+                    typer.echo(f"{thetis_mrv.DATASET} {year}: skipped (not archived)")
+                    continue
+                version = 0
+            else:
+                if year not in versions:
+                    typer.echo(f"{thetis_mrv.DATASET} {year}: not available")
+                    continue
+                version = versions[year]
+
+            started = time.monotonic()
+            fetch = (
+                None
+                if from_archive
+                else partial(thetis_mrv.fetch_year, client, config, year, version)
+            )
+            result = thetis_mrv.load_year(conn, archive, config, year, version, fetch)
+            note = " (replaced earlier load)" if result.superseded_load_id else ""
+            typer.echo(
+                f"{thetis_mrv.DATASET} {year}: {result.row_count:,} ships "
+                f"in {time.monotonic() - started:.1f}s{note}"
+            )
+
+
+@ingest_app.command("comext")
+def ingest_comext(
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
+    skip_existing: Annotated[
+        bool, typer.Option(help="Skip month × HS-6 partitions that already have a load.")
+    ] = False,
+    from_archive: Annotated[
+        bool, typer.Option(help="Re-parse archived CSV responses instead of calling Comext.")
+    ] = False,
+) -> None:
+    """Load Eurostat Comext extra-EU imports by mode of transport for the case HS-6 codes."""
+    config = sources_config()
+    comext_config = config.comext
+    hs_codes = hs_codes_config()
+    reporters = eu_reporters_config().reporters
+    raw_partners = origin_iso2(origins_config())
+    overrides = comext_config.partner_overrides
+    mapped = {overrides.get(p, p) for p in raw_partners}
+    partners = sorted(code for code in mapped if code is not None)
+    months = _month_range(start, end)
+    settings = get_settings()
+    archive = NeonArchive(settings)
+
+    hs6_codes = sorted({p.prefix[:6] for p in hs_codes.prefixes if len(p.prefix) >= 6})
+    if not hs6_codes:
+        raise typer.BadParameter("no HS-6 codes in config/hs_codes.yaml")
+
+    with make_client(comext_config.timeout_seconds) as client, connect(settings) as conn:
+        done = manifest.succeeded_partitions(conn, comext.DATASET) if skip_existing else set()
+        for month in months.months():
+            for hs6 in hs6_codes:
+                key = comext.partition_key(month, hs6)
+                if key in done:
+                    typer.echo(f"{comext.DATASET} {key}: skipped (already loaded)")
+                    continue
+                started = time.monotonic()
+                fetch = (
+                    None
+                    if from_archive
+                    else partial(
+                        comext.fetch_month,
+                        client,
+                        comext_config,
+                        reporters,
+                        partners,
+                        hs6,
+                        month,
+                    )
+                )
+                result = comext.load_month(
+                    conn, archive, comext_config, reporters, partners, hs6, month, fetch
+                )
+                note = " (replaced earlier load)" if result.superseded_load_id else ""
+                typer.echo(
+                    f"{comext.DATASET} {key}: {result.row_count:,} rows "
+                    f"in {time.monotonic() - started:.1f}s{note}"
+                )
 
 
 @ref_app.command("config-seeds")

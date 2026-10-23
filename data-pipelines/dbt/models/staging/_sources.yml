@@ -22,3 +22,5 @@ sources:
       - name: uk_ghg_conversion_factors
       - name: epa_ghg_transport_factors
       - name: epa_ghg_gwp
+      - name: thetis_mrv
+      - name: comext_trade

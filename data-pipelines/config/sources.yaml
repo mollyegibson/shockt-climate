@@ -116,6 +116,32 @@ reference_sources:
     cases:
       - tariffs_2025
 
+thetis_mrv:
+  # EMSA THETIS-MRV: annual per-ship fuel consumption and emissions under EU MRV Regulation
+  # 2015/757. The xlsx is generated daily from https://mrv.emsa.europa.eu; no API key needed.
+  downloadable_files_url: https://mrv.emsa.europa.eu/api/public-emission-report/downloadable-files
+  download_url_template: https://mrv.emsa.europa.eu/api/public-emission-report/reporting-period-document/binary/{year}/{version}
+  # Reporting years to load. The date_range controls the analysis months; these control which
+  # annual MRV snapshots are archived and parsed. null resolves to the latest available.
+  start_year: 2022
+  end_year: null
+
+comext:
+  # Eurostat Comext DS-059334: extra-EU trade by mode of transport, at HS-6.
+  # SDMX 2.1 REST API; no API key needed. Full-dataset downloads are disabled; filters required.
+  base_url: https://ec.europa.eu/eurostat/api/comext/dissemination/sdmx/2.1
+  dataset: DS-059334
+  flow: "1"            # imports
+  indicators:
+    - QUANTITY_KG
+    - VALUE_EUR
+  timeout_seconds: 120
+  # Census Schedule C codes that are not valid Eurostat partner codes.
+  # GZ (Gaza) and WE (West Bank) → PS (Palestine, State of) in Comext.
+  partner_overrides:
+    GZ: PS
+    WE: PS
+
 distances:
   # Generators that write the distance seeds (plan section 6.3), between the node pairs in
   # core.fct_node_weights_monthly.

@@ -462,3 +462,57 @@ erDiagram
 - `seed_air_distances`: Geodesic distances from departure airports to air gateways (`shockt ref air-distances`).
 - `seed_road_distances`: openrouteservice heavy-vehicle distances for truck legs (`shockt ref road-distances`).
 - `seed_rail_distances`: Shortest-track distances for rail legs on the BTS North American Rail Network (`shockt ref rail-distances`).
+
+## EU imports and ship fuel intensities
+
+Eurostat Comext extra-EU imports by transport mode and EMSA THETIS-MRV per-ship fuel intensity. Comext is the EU parallel of US Census imports; MRV provides observed fuel consumption per ship, joined to Climate TRACE voyages by IMO number.
+
+```mermaid
+erDiagram
+  fct_eu_imports_monthly {
+    date month PK
+    text hs6 PK
+    text reporter PK
+    text partner PK
+    text transport_mode_code PK
+    text transport_mode
+    numeric quantity_kg
+    numeric value_eur
+    uuid load_id
+  }
+  agg_eu_imports_mode_monthly {
+    date month PK
+    text hs6 PK
+    text partner PK
+    text transport_mode PK
+    numeric quantity_kg
+    numeric value_eur
+    bigint reporter_count
+  }
+  fct_ship_fuel_intensities {
+    text imo_number PK
+    int reporting_year PK
+    text ship_name
+    text ship_type
+    text port_of_registry
+    numeric total_fuel_consumption_mt
+    numeric total_co2_mt
+    numeric total_co2eq_mt
+    numeric time_at_sea_hours
+    numeric fuel_per_distance_kg_nm
+    numeric co2_per_distance_kg_nm
+    numeric co2_per_transport_work_mass
+    bool in_voyage_data
+    uuid load_id
+  }
+  fct_voyages {
+    text asset_identifier PK
+    timestamptz started_at PK
+  }
+  fct_eu_imports_monthly ||--o{ agg_eu_imports_mode_monthly : "summed across reporters"
+  fct_voyages ||..o{ fct_ship_fuel_intensities : "IMO from asset_identifier"
+```
+
+- `fct_eu_imports_monthly`: EU imports from extra-EU partners (Eurostat Comext DS-059334) by month, HS-6, reporting member state, partner country and transport mode. `transport_mode` maps the Comext code to a label: 1→sea, 2→rail, 3→road, 4→air, 8→inland_waterway, else other.
+- `agg_eu_imports_mode_monthly`: EU imports summed across reporting member states: month × HS-6 × partner × transport mode, with the count of reporters that contributed.
+- `fct_ship_fuel_intensities`: Per-ship annual fuel intensity from EMSA THETIS-MRV (full reports only), with a flag for whether the IMO number appears in the Climate TRACE container-ship voyages.
