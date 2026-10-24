@@ -236,6 +236,43 @@ def state_port_vessel(conn: psycopg.Connection, region: str) -> pl.DataFrame:
     )
 
 
+def eu_imports(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly EU imports from extra-EU partners, summed across reporters, by HS-6, partner and
+    transport mode."""
+    return frame(
+        conn,
+        """
+        select month, hs6, partner, transport_mode,
+            quantity_kg::float8 as quantity_kg, value_eur::float8 as value_eur,
+            reporter_count
+        from core.agg_eu_imports_mode_monthly
+        where hs6 = any(%(hs6)s)
+        order by month, hs6, partner, transport_mode
+        """,
+        {"hs6": list(hs6)},
+    )
+
+
+def ship_fuel_intensities(conn: psycopg.Connection) -> pl.DataFrame:
+    """Per-ship annual fuel intensity from THETIS-MRV, with a flag for whether the ship appears
+    in Climate TRACE voyage data."""
+    return frame(
+        conn,
+        """
+        select imo_number, reporting_year, ship_name, ship_type, port_of_registry,
+            total_fuel_consumption_mt::float8 as total_fuel_consumption_mt,
+            total_co2_mt::float8 as total_co2_mt,
+            total_co2eq_mt::float8 as total_co2eq_mt,
+            time_at_sea_hours::float8 as time_at_sea_hours,
+            fuel_per_distance_kg_nm::float8 as fuel_per_distance_kg_nm,
+            co2_per_distance_kg_nm::float8 as co2_per_distance_kg_nm,
+            co2_per_transport_work_mass::float8 as co2_per_transport_work_mass,
+            in_voyage_data
+        from core.fct_ship_fuel_intensities
+        """,
+    )
+
+
 def air_values(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     """Monthly air value and shipping weight by origin and HS-6, from Census."""
     return frame(
