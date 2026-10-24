@@ -28,3 +28,43 @@ prefixes:
   - prefix: "853720"
     cases:
       - panama_red_sea
+  # Cotton sweaters and pullovers, knit.
+  - prefix: "611020"
+    cases:
+      - apparel_footwear
+  # Cotton T-shirts, singlets, tank tops, knit.
+  - prefix: "610910"
+    cases:
+      - apparel_footwear
+  # Synthetic sweaters and pullovers, knit.
+  - prefix: "611030"
+    cases:
+      - apparel_footwear
+  # Footwear, rubber/plastic outer sole, leather upper, nesoi.
+  - prefix: "640299"
+    cases:
+      - apparel_footwear
+  # Women's or girls' cotton trousers, not knit.
+  - prefix: "620462"
+    cases:
+      - apparel_footwear
+  # Footwear, textile upper, rubber/plastic sole, nesoi.
+  - prefix: "640419"
+    cases:
+      - apparel_footwear
+  # Men's or boys' cotton trousers, not knit.
+  - prefix: "620342"
+    cases:
+      - apparel_footwear
+  # Footwear, leather upper, rubber outer sole, nesoi.
+  - prefix: "640399"
+    cases:
+      - apparel_footwear
+  # Footwear, leather upper, ankle-covering, nesoi.
+  - prefix: "640391"
+    cases:
+      - apparel_footwear
+  # Sports footwear, textile upper, rubber/plastic sole.
+  - prefix: "640411"
+    cases:
+      - apparel_footwear
