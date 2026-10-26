@@ -145,6 +145,20 @@ def factors(conn: psycopg.Connection) -> list[Factor]:
     return [Factor(*row) for row in rows]
 
 
+def factor_components(conn: psycopg.Connection) -> pl.DataFrame:
+    """TTW, WTT and WTW components from the UK DESNZ emission factors."""
+    return frame(
+        conn,
+        """
+        select variant, ttw_kg_co2e_per_tkm, wtt_kg_co2e_per_tkm, wtw_kg_co2e_per_tkm
+        from core.ref_emission_factors
+        where source = 'uk_desnz'
+            and ttw_kg_co2e_per_tkm is not null
+            and wtt_kg_co2e_per_tkm is not null
+        """,
+    )
+
+
 def current_loads(conn: psycopg.Connection, datasets: Sequence[str]) -> pl.DataFrame:
     """The current loads behind a result: per dataset, how many partitions and the latest load."""
     return frame(
