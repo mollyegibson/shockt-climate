@@ -68,3 +68,11 @@ prefixes:
   - prefix: "640411"
     cases:
       - apparel_footwear
+  # Seats (heading 9401): a tariff case where duty was paid.
+  - prefix: "9401"
+    cases:
+      - toys_seating
+  # Toys (heading 9503): a tariff case where duty was paid.
+  - prefix: "9503"
+    cases:
+      - toys_seating

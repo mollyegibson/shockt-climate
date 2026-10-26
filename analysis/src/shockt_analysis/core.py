@@ -101,7 +101,8 @@ def observed_sea(conn: psycopg.Connection) -> pl.DataFrame:
         conn,
         """
         select month, origin_iso3, arrival_node_id, n_voyages,
-            median_distance_km::float8 as median_distance_km
+            median_distance_km::float8 as median_distance_km,
+            mean_duration_h::float8 as mean_duration_h
         from core.agg_observed_sea_distances_monthly
         """,
     )
@@ -180,7 +181,8 @@ def voyage_lanes(conn: psycopg.Connection) -> pl.DataFrame:
         """
         select month, origin_iso3, origin_region, end_coast_region, n_voyages,
             total_distance_km::float8 as total_distance_km,
-            median_distance_km::float8 as median_distance_km
+            median_distance_km::float8 as median_distance_km,
+            mean_duration_h::float8 as mean_duration_h
         from core.agg_voyage_lanes_monthly
         """,
     )
@@ -270,6 +272,24 @@ def ship_fuel_intensities(conn: psycopg.Connection) -> pl.DataFrame:
             in_voyage_data
         from core.fct_ship_fuel_intensities
         """,
+    )
+
+
+def duties(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly duty by HS-10 and country: consumption value, dutiable value and calculated duty."""
+    return frame(
+        conn,
+        """
+        select d.month, d.hs10, d.hs6, d.census_cty_code, c.iso3, c.cty_name,
+            d.consumption_value_usd::float8 as consumption_value_usd,
+            d.dutiable_value_usd::float8 as dutiable_value_usd,
+            d.calculated_duty_usd::float8 as calculated_duty_usd
+        from core.fct_import_duties_monthly as d
+        join core.dim_country as c using (census_cty_code)
+        where d.hs6 = any(%(hs6)s) and c.region <> 'other'
+        order by d.month, c.iso3, d.hs6
+        """,
+        {"hs6": list(hs6)},
     )
 
 
