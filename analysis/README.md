@@ -13,10 +13,13 @@ Notebooks for the case studies. They read `core` with the read-only analyst logi
 ## Setup
 
 ```sh
-cp .env.example .env        # then set ANALYST_DATABASE_URL (read-only shockt_analyst login)
+cp .env.example .env
 uv sync
 uv run jupyter lab          # open a notebook under case1/ or case2/
 ```
+
+Set `ANALYST_DATABASE_URL` in `.env` to the read-only `shockt_analyst` login. Ask the
+engineering team for the connection string if you don't have it.
 
 To run a notebook top to bottom without opening it:
 
