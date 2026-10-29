@@ -8,6 +8,7 @@ input (the config file or the upstream source) and rerun the command.
 | `seed_hs_case_codes.csv` | `shockt ref config-seeds` | `config/hs_codes.yaml` |
 | `seed_census_countries.csv` | `shockt ref census-schedules` | Census Schedule C (archived), ISO3 via `pycountry` |
 | `seed_census_ports.csv` | `shockt ref census-schedules` | Census Schedule D (archived) |
+| `seed_country_names.csv` | `shockt ref country-names` | ISO 3166 via `pycountry`, `seed_census_countries.csv`, `config/sources.yaml` overrides |
 | `seed_sea_distances.csv` | `shockt ref sea-distances` | `searoute`, between the departure ports and arrival seaports in `core`, for each scenario in `config/sources.yaml` |
 | `seed_air_distances.csv` | `shockt ref air-distances` | Geodesic distances (`geographiclib`) between the departure airports and air gateways in `core` |
 | `seed_road_distances.csv` | `shockt ref road-distances` | openrouteservice heavy-vehicle matrix responses (archived), for the truck legs in `core` |

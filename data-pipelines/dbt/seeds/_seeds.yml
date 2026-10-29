@@ -9,6 +9,21 @@ x-stale-node: &stale_node
       severity: warn
 
 seeds:
+  - name: seed_country_names
+    description: >
+      Country-name variants → ISO3, from ISO 3166 (pycountry), Census Schedule C and config
+      overrides (`shockt ref country-names`). Staging models for sources that only carry a
+      country name (CBAM, SBTi) join here to get ISO3.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["variant_name"]
+    columns:
+      - name: variant_name
+        data_tests: [not_null]
+      - name: iso3
+        data_tests: [not_null]
+
   - name: seed_sea_distances
     description: searoute distances from departure ports to arrival seaports, per scenario (`shockt ref sea-distances`).
     data_tests:

@@ -16,9 +16,51 @@ purpose-built reader below covers the query.
 Configured origin countries (those with a region other than `other`).
 Columns: `census_cty_code`, `iso3`, `cty_name`, `region`.
 
+### `countries(conn) → DataFrame`
+All Census Schedule C countries, including those with region `other`.
+Columns: `census_cty_code`, `cty_name`, `iso3`, `region`.
+
 ### `case_codes(conn) → DataFrame`
 HS prefixes and the cases each belongs to (from `raw.seed_hs_case_codes`).
 Columns: `hs_prefix`, `cases`.
+
+## OECD maritime
+
+### `oecd_maritime_emissions(conn, ref_area="W") → DataFrame`
+Monthly OECD maritime CO₂ by vessel type for one ref_area (default: world aggregate).
+Columns: `month`, `vessel`, `co2_t`.
+
+## CBAM
+
+### `cbam_default_values(conn) → DataFrame`
+All CBAM default emission values from the current load.
+Columns: `country`, `sector`, `cn_code`, `description`, `production_route`,
+`direct_emissions`, `indirect_emissions`, `total_emissions`.
+
+## SBTi
+
+### `sbti_companies(conn) → DataFrame`
+All SBTi companies from the current load.
+Columns: `company_name`, `location`, `sbti_region`, `sector`, `near_term_status`,
+`long_term_status`, `net_zero_status`, `net_zero_year`.
+
+## New-source country keys
+
+### `cbam_countries(conn) → DataFrame`
+Distinct countries in the current CBAM default values, with the number of CN codes each.
+Columns: `country`, `n_cn_codes`.
+
+### `ceda_country_codes(conn) → DataFrame`
+Distinct (country_code, country) pairs in the current Open CEDA factors.
+Columns: `country_code`, `country`.
+
+### `oecd_ref_areas(conn) → DataFrame`
+Distinct ref_area codes in the current OECD maritime emissions, with observation counts.
+Columns: `ref_area`, `n_obs`.
+
+### `sbti_locations(conn) → DataFrame`
+Distinct (location, region) pairs in the current SBTi companies, with company counts.
+Columns: `location`, `region`, `n_companies`.
 
 ## Trade data
 

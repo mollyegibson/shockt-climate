@@ -22,6 +22,7 @@ from shockt.reference import (
     air_distances,
     census_schedules,
     config_seeds,
+    country_names,
     node_pairs,
     rail_distances,
     road_distances,
@@ -881,6 +882,18 @@ def ref_config_seeds() -> None:
     seeds = dbt.DBT_DIR / "seeds"
     n = config_seeds.write_hs_case_codes(hs_codes_config(), seeds / "seed_hs_case_codes.csv")
     typer.echo(f"seed_hs_case_codes.csv: {n} HS prefixes from config/hs_codes.yaml")
+
+
+@ref_app.command("country-names")
+def ref_country_names() -> None:
+    """Write seed_country_names.csv from ISO 3166, Census Schedule C and config overrides."""
+    seeds = dbt.DBT_DIR / "seeds"
+    config = sources_config().country_names
+    rows = country_names.generate(seeds / "seed_census_countries.csv", config.overrides)
+    country_names.write(rows, seeds / "seed_country_names.csv")
+    sources = {s for _, _, s in rows}
+    by_source = {s: sum(1 for r in rows if r[2] == s) for s in sorted(sources)}
+    typer.echo(f"seed_country_names.csv: {len(rows)} name variants ({by_source})")
 
 
 @ref_app.command("census-schedules")

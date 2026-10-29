@@ -307,6 +307,116 @@ def duties(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     )
 
 
+def oecd_maritime_emissions(conn: psycopg.Connection, ref_area: str = "W") -> pl.DataFrame:
+    """Monthly OECD maritime CO₂ by vessel type for one ref_area (default: world aggregate)."""
+    return frame(
+        conn,
+        """
+        select o.time_period as month, o.vessel,
+            o.obs_value * power(10, o.unit_mult) as co2_t
+        from raw.oecd_maritime_emissions as o
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'oecd_maritime_emissions'
+            and o.ref_area = %(ref_area)s
+        order by o.vessel, o.time_period
+        """,
+        {"ref_area": ref_area},
+    )
+
+
+def cbam_default_values(conn: psycopg.Connection) -> pl.DataFrame:
+    """All CBAM default emission values from the current load."""
+    return frame(
+        conn,
+        """
+        select c.country, c.sector, c.cn_code, c.description, c.production_route,
+            c.direct_emissions, c.indirect_emissions, c.total_emissions
+        from raw.cbam_default_values as c
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'cbam_default_values'
+        """,
+    )
+
+
+def sbti_companies(conn: psycopg.Connection) -> pl.DataFrame:
+    """All SBTi companies from the current load."""
+    return frame(
+        conn,
+        """
+        select s.company_name, s.location, s.region as sbti_region, s.sector,
+            s.near_term_status, s.long_term_status, s.net_zero_status,
+            s.net_zero_year
+        from raw.sbti_companies as s
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'sbti_companies'
+        """,
+    )
+
+
+def countries(conn: psycopg.Connection) -> pl.DataFrame:
+    """All Census Schedule C countries: code, name, ISO3 and analysis region."""
+    return frame(conn, "select census_cty_code, cty_name, iso3, region from core.dim_country")
+
+
+def cbam_countries(conn: psycopg.Connection) -> pl.DataFrame:
+    """Distinct countries in the current CBAM default values, with the number of CN codes each."""
+    return frame(
+        conn,
+        """
+        select c.country, count(distinct c.cn_code) as n_cn_codes
+        from raw.cbam_default_values as c
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'cbam_default_values'
+        group by c.country
+        order by c.country
+        """,
+    )
+
+
+def ceda_country_codes(conn: psycopg.Connection) -> pl.DataFrame:
+    """Distinct (country_code, country) in the current Open CEDA factors."""
+    return frame(
+        conn,
+        """
+        select distinct c.country_code, c.country
+        from raw.open_ceda_factors as c
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'open_ceda_factors'
+        order by c.country_code
+        """,
+    )
+
+
+def oecd_ref_areas(conn: psycopg.Connection) -> pl.DataFrame:
+    """Distinct ref_area codes in the current OECD maritime emissions, with total observations."""
+    return frame(
+        conn,
+        """
+        select o.ref_area, count(*) as n_obs
+        from raw.oecd_maritime_emissions as o
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'oecd_maritime_emissions'
+        group by o.ref_area
+        order by o.ref_area
+        """,
+    )
+
+
+def sbti_locations(conn: psycopg.Connection) -> pl.DataFrame:
+    """Distinct (location, region) in the current SBTi companies, with counts."""
+    return frame(
+        conn,
+        """
+        select c.location, c.region, count(*) as n_companies
+        from raw.sbti_companies as c
+        join raw.load_manifest as m using (load_id)
+        where m.status = 'succeeded' and m.dataset = 'sbti_companies'
+        group by c.location, c.region
+        order by c.location
+        """,
+    )
+
+
 def air_values(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     """Monthly air value and shipping weight by origin and HS-6, from Census."""
     return frame(

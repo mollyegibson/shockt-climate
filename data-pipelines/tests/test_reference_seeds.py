@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from shockt.config import hs_codes_config
-from shockt.reference import census_schedules, config_seeds
+from shockt.config import hs_codes_config, sources_config
+from shockt.reference import census_schedules, config_seeds, country_names
 from tests.conftest import PROJECT_ROOT
 
 SEEDS = PROJECT_ROOT / "dbt" / "seeds"
@@ -15,6 +15,16 @@ SEEDS = PROJECT_ROOT / "dbt" / "seeds"
         (
             "seed_hs_case_codes.csv",
             lambda p: config_seeds.write_hs_case_codes(hs_codes_config(), p),
+        ),
+        (
+            "seed_country_names.csv",
+            lambda p: country_names.write(
+                country_names.generate(
+                    SEEDS / "seed_census_countries.csv",
+                    sources_config().country_names.overrides,
+                ),
+                p,
+            ),
         ),
     ],
 )
@@ -63,6 +73,34 @@ def test_parse_schedule_d_reads_district_and_port_entries() -> None:
 
     assert ports[0] == census_schedules.Port("0101", "PORTLAND, ME", "01")
     assert ports[1] == census_schedules.Port("0102", "BANGOR, ME", "01")
+
+
+def test_country_names_includes_iso3166_and_census_and_overrides(tmp_path: Path) -> None:
+    census = tmp_path / "countries.csv"
+    census.write_text("census_cty_code,cty_name,iso2,iso3,source\n9999,Testlandia,XY,DEU,test\n")
+
+    rows = country_names.generate(census, {"Foobar": "DEU"})
+
+    by_name = {name: (iso3, source) for name, iso3, source in rows}
+    assert by_name["Germany"] == ("DEU", "iso_3166")
+    assert by_name["Testlandia"] == ("DEU", "census_schedule_c")
+    assert by_name["Foobar"] == ("DEU", "config_override")
+
+
+def test_country_names_rejects_conflicting_override(tmp_path: Path) -> None:
+    census = tmp_path / "countries.csv"
+    census.write_text("census_cty_code,cty_name,iso2,iso3,source\n")
+
+    with pytest.raises(country_names.CountryNameError, match="conflicts"):
+        country_names.generate(census, {"Germany": "XXX"})
+
+
+def test_country_names_rejects_invalid_iso3(tmp_path: Path) -> None:
+    census = tmp_path / "countries.csv"
+    census.write_text("census_cty_code,cty_name,iso2,iso3,source\n")
+
+    with pytest.raises(country_names.CountryNameError, match="not a valid"):
+        country_names.generate(census, {"Atlantis": "ATL"})
 
 
 def test_parse_schedule_c_leaves_census_specific_codes_without_an_override_blank() -> None:

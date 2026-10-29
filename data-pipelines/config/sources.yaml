@@ -103,6 +103,21 @@ census_schedules:
     GZ: PSE # Gaza Strip
     WE: PSE # West Bank
 
+country_names:
+  # Country-name variants used by CBAM, SBTi and other sources that don't carry an ISO3 code.
+  # `shockt ref country-names` generates seed_country_names.csv from ISO 3166 (pycountry) and the
+  # Census Schedule C seed; these overrides cover source-specific spellings that neither provides.
+  overrides:
+    "Congo, Democratic Republic of": COD
+    "Ivory Coast": CIV
+    "Korea, Republic of (South Korea)": KOR
+    "New Caledonia and dependencies": NCL
+    "Republic of Korea": KOR
+    "Netherlands (Kingdom of the)": NLD
+    "China, Hong Kong Special Administrative Region": HKG
+    "China, Macao Special Administrative Region": MAC
+    "Bolivia (Plurinational State of)": BOL
+
 reference_sources:
   # Reference datasets loaded into raw for placing nodes (plan section 6.2). Each is one
   # `latest` partition; a reload replaces the previous snapshot.

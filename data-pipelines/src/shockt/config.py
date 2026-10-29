@@ -135,6 +135,11 @@ class CensusSchedulesConfig(ConfigModel):
     """Census-specific ISO2 code → the ISO3 code other sources use, where ISO 3166 has none."""
 
 
+class CountryNamesConfig(ConfigModel):
+    overrides: dict[str, str]
+    """Source-specific country names that ISO 3166 and Census Schedule C don't cover → ISO3."""
+
+
 class OurAirportsConfig(ConfigModel):
     url: str
 
@@ -270,6 +275,7 @@ class SourcesConfig(ConfigModel):
     portwatch: PortwatchConfig
     climatetrace: ClimateTraceConfig
     census_schedules: CensusSchedulesConfig
+    country_names: CountryNamesConfig
     reference_sources: ReferenceSourcesConfig
     emission_factors: EmissionFactorsConfig
     thetis_mrv: ThetisMrvConfig

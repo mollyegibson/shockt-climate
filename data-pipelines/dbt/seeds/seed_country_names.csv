@@ -1,0 +1,464 @@
+variant_name,iso3,source
+Aruba,ABW,iso_3166
+Afghanistan,AFG,iso_3166
+Islamic Republic of Afghanistan,AFG,iso_3166
+Angola,AGO,iso_3166
+Republic of Angola,AGO,iso_3166
+Anguilla,AIA,iso_3166
+Åland Islands,ALA,iso_3166
+Albania,ALB,iso_3166
+Republic of Albania,ALB,iso_3166
+Andorra,AND,iso_3166
+Principality of Andorra,AND,iso_3166
+United Arab Emirates,ARE,iso_3166
+Argentina,ARG,iso_3166
+Argentine Republic,ARG,iso_3166
+Armenia,ARM,iso_3166
+Republic of Armenia,ARM,iso_3166
+American Samoa,ASM,iso_3166
+Antarctica,ATA,iso_3166
+French Southern Territories,ATF,iso_3166
+French Southern and Antarctic Lands,ATF,census_schedule_c
+Antigua and Barbuda,ATG,iso_3166
+Australia,AUS,iso_3166
+Austria,AUT,iso_3166
+Republic of Austria,AUT,iso_3166
+Azerbaijan,AZE,iso_3166
+Republic of Azerbaijan,AZE,iso_3166
+Burundi,BDI,iso_3166
+Republic of Burundi,BDI,iso_3166
+Belgium,BEL,iso_3166
+Kingdom of Belgium,BEL,iso_3166
+Benin,BEN,iso_3166
+Republic of Benin,BEN,iso_3166
+"Bonaire, Sint Eustatius and Saba",BES,iso_3166
+Burkina Faso,BFA,iso_3166
+Bangladesh,BGD,iso_3166
+People's Republic of Bangladesh,BGD,iso_3166
+Bulgaria,BGR,iso_3166
+Republic of Bulgaria,BGR,iso_3166
+Bahrain,BHR,iso_3166
+Kingdom of Bahrain,BHR,iso_3166
+Bahamas,BHS,iso_3166
+Commonwealth of the Bahamas,BHS,iso_3166
+Bosnia and Herzegovina,BIH,iso_3166
+Republic of Bosnia and Herzegovina,BIH,iso_3166
+Saint Barthélemy,BLM,iso_3166
+Belarus,BLR,iso_3166
+Republic of Belarus,BLR,iso_3166
+Belize,BLZ,iso_3166
+Bermuda,BMU,iso_3166
+Bolivia,BOL,iso_3166
+Bolivia (Plurinational State of),BOL,config_override
+"Bolivia, Plurinational State of",BOL,iso_3166
+Plurinational State of Bolivia,BOL,iso_3166
+Brazil,BRA,iso_3166
+Federative Republic of Brazil,BRA,iso_3166
+Barbados,BRB,iso_3166
+Brunei,BRN,census_schedule_c
+Brunei Darussalam,BRN,iso_3166
+Bhutan,BTN,iso_3166
+Kingdom of Bhutan,BTN,iso_3166
+Bouvet Island,BVT,iso_3166
+Botswana,BWA,iso_3166
+Republic of Botswana,BWA,iso_3166
+Central African Republic,CAF,iso_3166
+Canada,CAN,iso_3166
+Cocos (Keeling) Islands,CCK,iso_3166
+Swiss Confederation,CHE,iso_3166
+Switzerland,CHE,iso_3166
+Chile,CHL,iso_3166
+Republic of Chile,CHL,iso_3166
+China,CHN,iso_3166
+People's Republic of China,CHN,iso_3166
+Cote d'Ivoire,CIV,census_schedule_c
+Côte d'Ivoire,CIV,iso_3166
+Ivory Coast,CIV,config_override
+Republic of Côte d'Ivoire,CIV,iso_3166
+Cameroon,CMR,iso_3166
+Republic of Cameroon,CMR,iso_3166
+"Congo, Democratic Republic of",COD,config_override
+"Congo, Democratic Republic of the Congo (formerly Za",COD,census_schedule_c
+"Congo, The Democratic Republic of the",COD,iso_3166
+Congo,COG,iso_3166
+"Congo, Republic of the Congo",COG,census_schedule_c
+Republic of the Congo,COG,iso_3166
+Cook Islands,COK,iso_3166
+Colombia,COL,iso_3166
+Republic of Colombia,COL,iso_3166
+Comoros,COM,iso_3166
+Union of the Comoros,COM,iso_3166
+Cabo Verde,CPV,iso_3166
+Republic of Cabo Verde,CPV,iso_3166
+Costa Rica,CRI,iso_3166
+Republic of Costa Rica,CRI,iso_3166
+Cuba,CUB,iso_3166
+Republic of Cuba,CUB,iso_3166
+Curacao,CUW,census_schedule_c
+Curaçao,CUW,iso_3166
+Christmas Island,CXR,iso_3166
+Christmas Island (in the Indian Ocean),CXR,census_schedule_c
+Cayman Islands,CYM,iso_3166
+Cyprus,CYP,iso_3166
+Republic of Cyprus,CYP,iso_3166
+Czech Republic,CZE,iso_3166
+Czechia,CZE,iso_3166
+Federal Republic of Germany,DEU,iso_3166
+Germany,DEU,iso_3166
+Germany (Federal Republic of Germany),DEU,census_schedule_c
+Djibouti,DJI,iso_3166
+Republic of Djibouti,DJI,iso_3166
+Commonwealth of Dominica,DMA,iso_3166
+Dominica,DMA,iso_3166
+Denmark,DNK,iso_3166
+"Denmark, except Greenland",DNK,census_schedule_c
+Kingdom of Denmark,DNK,iso_3166
+Dominican Republic,DOM,iso_3166
+Algeria,DZA,iso_3166
+People's Democratic Republic of Algeria,DZA,iso_3166
+Ecuador,ECU,iso_3166
+Republic of Ecuador,ECU,iso_3166
+Arab Republic of Egypt,EGY,iso_3166
+Egypt,EGY,iso_3166
+Eritrea,ERI,iso_3166
+the State of Eritrea,ERI,iso_3166
+Western Sahara,ESH,iso_3166
+Kingdom of Spain,ESP,iso_3166
+Spain,ESP,iso_3166
+Estonia,EST,iso_3166
+Republic of Estonia,EST,iso_3166
+Ethiopia,ETH,iso_3166
+Federal Democratic Republic of Ethiopia,ETH,iso_3166
+Finland,FIN,iso_3166
+Republic of Finland,FIN,iso_3166
+Fiji,FJI,iso_3166
+Republic of Fiji,FJI,iso_3166
+Falkland Islands (Islas Malvinas),FLK,census_schedule_c
+Falkland Islands (Malvinas),FLK,iso_3166
+France,FRA,iso_3166
+French Republic,FRA,iso_3166
+Faroe Islands,FRO,iso_3166
+Federated States of Micronesia,FSM,iso_3166
+"Micronesia, Federated States of",FSM,iso_3166
+Gabon,GAB,iso_3166
+Gabonese Republic,GAB,iso_3166
+United Kingdom,GBR,iso_3166
+United Kingdom of Great Britain and Northern Ireland,GBR,iso_3166
+Georgia,GEO,iso_3166
+Guernsey,GGY,iso_3166
+Ghana,GHA,iso_3166
+Republic of Ghana,GHA,iso_3166
+Gibraltar,GIB,iso_3166
+Guinea,GIN,iso_3166
+Republic of Guinea,GIN,iso_3166
+Guadeloupe,GLP,iso_3166
+Gambia,GMB,iso_3166
+Republic of the Gambia,GMB,iso_3166
+Guinea-Bissau,GNB,iso_3166
+Republic of Guinea-Bissau,GNB,iso_3166
+Equatorial Guinea,GNQ,iso_3166
+Republic of Equatorial Guinea,GNQ,iso_3166
+Greece,GRC,iso_3166
+Hellenic Republic,GRC,iso_3166
+Grenada,GRD,iso_3166
+Greenland,GRL,iso_3166
+Guatemala,GTM,iso_3166
+Republic of Guatemala,GTM,iso_3166
+French Guiana,GUF,iso_3166
+Guam,GUM,iso_3166
+Guyana,GUY,iso_3166
+Republic of Guyana,GUY,iso_3166
+"China, Hong Kong Special Administrative Region",HKG,config_override
+Hong Kong,HKG,iso_3166
+Hong Kong Special Administrative Region of China,HKG,iso_3166
+Heard Island and McDonald Islands,HMD,iso_3166
+Honduras,HND,iso_3166
+Republic of Honduras,HND,iso_3166
+Croatia,HRV,iso_3166
+Republic of Croatia,HRV,iso_3166
+Haiti,HTI,iso_3166
+Republic of Haiti,HTI,iso_3166
+Hungary,HUN,iso_3166
+Indonesia,IDN,iso_3166
+Republic of Indonesia,IDN,iso_3166
+Isle of Man,IMN,iso_3166
+India,IND,iso_3166
+Republic of India,IND,iso_3166
+British Indian Ocean Territory,IOT,iso_3166
+Ireland,IRL,iso_3166
+Iran,IRN,iso_3166
+"Iran, Islamic Republic of",IRN,iso_3166
+Islamic Republic of Iran,IRN,iso_3166
+Iraq,IRQ,iso_3166
+Republic of Iraq,IRQ,iso_3166
+Iceland,ISL,iso_3166
+Republic of Iceland,ISL,iso_3166
+Israel,ISR,iso_3166
+State of Israel,ISR,iso_3166
+Italian Republic,ITA,iso_3166
+Italy,ITA,iso_3166
+Jamaica,JAM,iso_3166
+Jersey,JEY,iso_3166
+Hashemite Kingdom of Jordan,JOR,iso_3166
+Jordan,JOR,iso_3166
+Japan,JPN,iso_3166
+Kazakhstan,KAZ,iso_3166
+Republic of Kazakhstan,KAZ,iso_3166
+Kenya,KEN,iso_3166
+Republic of Kenya,KEN,iso_3166
+Kyrgyz Republic,KGZ,iso_3166
+Kyrgyzstan,KGZ,iso_3166
+Cambodia,KHM,iso_3166
+Kingdom of Cambodia,KHM,iso_3166
+Kiribati,KIR,iso_3166
+Republic of Kiribati,KIR,iso_3166
+Saint Kitts and Nevis,KNA,iso_3166
+"Korea, Republic of",KOR,iso_3166
+"Korea, Republic of (South Korea)",KOR,config_override
+Republic of Korea,KOR,config_override
+South Korea,KOR,iso_3166
+South Korea (Republic of Korea),KOR,census_schedule_c
+Kuwait,KWT,iso_3166
+State of Kuwait,KWT,iso_3166
+Lao People's Democratic Republic,LAO,iso_3166
+Laos,LAO,iso_3166
+Laos (Lao People's Democratic Republic),LAO,census_schedule_c
+Lebanese Republic,LBN,iso_3166
+Lebanon,LBN,iso_3166
+Liberia,LBR,iso_3166
+Republic of Liberia,LBR,iso_3166
+Libya,LBY,iso_3166
+Saint Lucia,LCA,iso_3166
+Liechtenstein,LIE,iso_3166
+Principality of Liechtenstein,LIE,iso_3166
+Democratic Socialist Republic of Sri Lanka,LKA,iso_3166
+Sri Lanka,LKA,iso_3166
+Kingdom of Lesotho,LSO,iso_3166
+Lesotho,LSO,iso_3166
+Lithuania,LTU,iso_3166
+Republic of Lithuania,LTU,iso_3166
+Grand Duchy of Luxembourg,LUX,iso_3166
+Luxembourg,LUX,iso_3166
+Latvia,LVA,iso_3166
+Republic of Latvia,LVA,iso_3166
+"China, Macao Special Administrative Region",MAC,config_override
+Macao,MAC,iso_3166
+Macao Special Administrative Region of China,MAC,iso_3166
+Saint Martin (French part),MAF,iso_3166
+Kingdom of Morocco,MAR,iso_3166
+Morocco,MAR,iso_3166
+Monaco,MCO,iso_3166
+Principality of Monaco,MCO,iso_3166
+Moldova,MDA,iso_3166
+Moldova (Republic of Moldova),MDA,census_schedule_c
+"Moldova, Republic of",MDA,iso_3166
+Republic of Moldova,MDA,iso_3166
+Madagascar,MDG,iso_3166
+Republic of Madagascar,MDG,iso_3166
+Maldives,MDV,iso_3166
+Republic of Maldives,MDV,iso_3166
+Mexico,MEX,iso_3166
+United Mexican States,MEX,iso_3166
+Marshall Islands,MHL,iso_3166
+Republic of the Marshall Islands,MHL,iso_3166
+North Macedonia,MKD,iso_3166
+Republic of North Macedonia,MKD,iso_3166
+Mali,MLI,iso_3166
+Republic of Mali,MLI,iso_3166
+Malta,MLT,iso_3166
+Republic of Malta,MLT,iso_3166
+Burma (Myanmar),MMR,census_schedule_c
+Myanmar,MMR,iso_3166
+Republic of Myanmar,MMR,iso_3166
+Montenegro,MNE,iso_3166
+Mongolia,MNG,iso_3166
+Commonwealth of the Northern Mariana Islands,MNP,iso_3166
+Northern Mariana Islands,MNP,iso_3166
+Mozambique,MOZ,iso_3166
+Republic of Mozambique,MOZ,iso_3166
+Islamic Republic of Mauritania,MRT,iso_3166
+Mauritania,MRT,iso_3166
+Montserrat,MSR,iso_3166
+Martinique,MTQ,iso_3166
+Mauritius,MUS,iso_3166
+Republic of Mauritius,MUS,iso_3166
+Malawi,MWI,iso_3166
+Republic of Malawi,MWI,iso_3166
+Malaysia,MYS,iso_3166
+Mayotte,MYT,iso_3166
+Namibia,NAM,iso_3166
+Republic of Namibia,NAM,iso_3166
+New Caledonia,NCL,iso_3166
+New Caledonia and dependencies,NCL,config_override
+Niger,NER,iso_3166
+Republic of the Niger,NER,iso_3166
+Norfolk Island,NFK,iso_3166
+Federal Republic of Nigeria,NGA,iso_3166
+Nigeria,NGA,iso_3166
+Nicaragua,NIC,iso_3166
+Republic of Nicaragua,NIC,iso_3166
+Niue,NIU,iso_3166
+Kingdom of the Netherlands,NLD,iso_3166
+Netherlands,NLD,iso_3166
+Netherlands (Kingdom of the),NLD,config_override
+Kingdom of Norway,NOR,iso_3166
+Norway,NOR,iso_3166
+Federal Democratic Republic of Nepal,NPL,iso_3166
+Nepal,NPL,iso_3166
+Naoero,NRU,census_schedule_c
+Nauru,NRU,iso_3166
+Republic of Nauru,NRU,iso_3166
+New Zealand,NZL,iso_3166
+Oman,OMN,iso_3166
+Sultanate of Oman,OMN,iso_3166
+Islamic Republic of Pakistan,PAK,iso_3166
+Pakistan,PAK,iso_3166
+Panama,PAN,iso_3166
+Republic of Panama,PAN,iso_3166
+Pitcairn,PCN,iso_3166
+Pitcairn Islands,PCN,census_schedule_c
+Peru,PER,iso_3166
+Republic of Peru,PER,iso_3166
+Philippines,PHL,iso_3166
+Republic of the Philippines,PHL,iso_3166
+Palau,PLW,iso_3166
+Republic of Palau,PLW,iso_3166
+Independent State of Papua New Guinea,PNG,iso_3166
+Papua New Guinea,PNG,iso_3166
+Poland,POL,iso_3166
+Republic of Poland,POL,iso_3166
+Puerto Rico,PRI,iso_3166
+Democratic People's Republic of Korea,PRK,iso_3166
+"Korea, Democratic People's Republic of",PRK,iso_3166
+North Korea,PRK,iso_3166
+North Korea (Democratic People's Republic of Korea),PRK,census_schedule_c
+Portugal,PRT,iso_3166
+Portuguese Republic,PRT,iso_3166
+Paraguay,PRY,iso_3166
+Republic of Paraguay,PRY,iso_3166
+Gaza Strip administered by Israel,PSE,census_schedule_c
+"Palestine, State of",PSE,iso_3166
+West Bank administered by Israel,PSE,census_schedule_c
+the State of Palestine,PSE,iso_3166
+French Polynesia,PYF,iso_3166
+Qatar,QAT,iso_3166
+State of Qatar,QAT,iso_3166
+Reunion,REU,census_schedule_c
+Réunion,REU,iso_3166
+Romania,ROU,iso_3166
+Russia,RUS,census_schedule_c
+Russian Federation,RUS,iso_3166
+Rwanda,RWA,iso_3166
+Rwandese Republic,RWA,iso_3166
+Kingdom of Saudi Arabia,SAU,iso_3166
+Saudi Arabia,SAU,iso_3166
+Republic of the Sudan,SDN,iso_3166
+Sudan,SDN,iso_3166
+Republic of Senegal,SEN,iso_3166
+Senegal,SEN,iso_3166
+Republic of Singapore,SGP,iso_3166
+Singapore,SGP,iso_3166
+South Georgia and the South Sandwich Islands,SGS,iso_3166
+Saint Helena,SHN,census_schedule_c
+"Saint Helena, Ascension and Tristan da Cunha",SHN,iso_3166
+Svalbard and Jan Mayen,SJM,iso_3166
+Solomon Islands,SLB,iso_3166
+Republic of Sierra Leone,SLE,iso_3166
+Sierra Leone,SLE,iso_3166
+El Salvador,SLV,iso_3166
+Republic of El Salvador,SLV,iso_3166
+Republic of San Marino,SMR,iso_3166
+San Marino,SMR,iso_3166
+Federal Republic of Somalia,SOM,iso_3166
+Somalia,SOM,iso_3166
+Saint Pierre and Miquelon,SPM,iso_3166
+Republic of Serbia,SRB,iso_3166
+Serbia,SRB,iso_3166
+Republic of South Sudan,SSD,iso_3166
+South Sudan,SSD,iso_3166
+Democratic Republic of Sao Tome and Principe,STP,iso_3166
+Sao Tome and Principe,STP,iso_3166
+Republic of Suriname,SUR,iso_3166
+Suriname,SUR,iso_3166
+Slovak Republic,SVK,iso_3166
+Slovakia,SVK,iso_3166
+Republic of Slovenia,SVN,iso_3166
+Slovenia,SVN,iso_3166
+Kingdom of Sweden,SWE,iso_3166
+Sweden,SWE,iso_3166
+Eswatini,SWZ,iso_3166
+Kingdom of Eswatini,SWZ,iso_3166
+Sint Maarten,SXM,census_schedule_c
+Sint Maarten (Dutch part),SXM,iso_3166
+Republic of Seychelles,SYC,iso_3166
+Seychelles,SYC,iso_3166
+Syria,SYR,iso_3166
+Syria (Syrian Arab Republic),SYR,census_schedule_c
+Syrian Arab Republic,SYR,iso_3166
+Turks and Caicos Islands,TCA,iso_3166
+Chad,TCD,iso_3166
+Republic of Chad,TCD,iso_3166
+Togo,TGO,iso_3166
+Togolese Republic,TGO,iso_3166
+Kingdom of Thailand,THA,iso_3166
+Thailand,THA,iso_3166
+Republic of Tajikistan,TJK,iso_3166
+Tajikistan,TJK,iso_3166
+Tokelau,TKL,iso_3166
+Turkmenistan,TKM,iso_3166
+Democratic Republic of Timor-Leste,TLS,iso_3166
+Timor-Leste,TLS,iso_3166
+Kingdom of Tonga,TON,iso_3166
+Tonga,TON,iso_3166
+Republic of Trinidad and Tobago,TTO,iso_3166
+Trinidad and Tobago,TTO,iso_3166
+Republic of Tunisia,TUN,iso_3166
+Tunisia,TUN,iso_3166
+Republic of Türkiye,TUR,iso_3166
+Turkey,TUR,census_schedule_c
+Türkiye,TUR,iso_3166
+Tuvalu,TUV,iso_3166
+Taiwan,TWN,iso_3166
+"Taiwan, Province of China",TWN,iso_3166
+Tanzania,TZA,iso_3166
+Tanzania (United Republic of Tanzania),TZA,census_schedule_c
+"Tanzania, United Republic of",TZA,iso_3166
+United Republic of Tanzania,TZA,iso_3166
+Republic of Uganda,UGA,iso_3166
+Uganda,UGA,iso_3166
+Ukraine,UKR,iso_3166
+United States Minor Outlying Islands,UMI,iso_3166
+Eastern Republic of Uruguay,URY,iso_3166
+Uruguay,URY,iso_3166
+United States,USA,iso_3166
+United States of America,USA,iso_3166
+Republic of Uzbekistan,UZB,iso_3166
+Uzbekistan,UZB,iso_3166
+Holy See (Vatican City State),VAT,iso_3166
+Holy See (Vatican City),VAT,census_schedule_c
+Saint Vincent and the Grenadines,VCT,iso_3166
+Bolivarian Republic of Venezuela,VEN,iso_3166
+Venezuela,VEN,iso_3166
+"Venezuela, Bolivarian Republic of",VEN,iso_3166
+British Virgin Islands,VGB,iso_3166
+"Virgin Islands, British",VGB,iso_3166
+Virgin Islands of the United States,VIR,iso_3166
+"Virgin Islands, U.S.",VIR,iso_3166
+Socialist Republic of Viet Nam,VNM,iso_3166
+Viet Nam,VNM,iso_3166
+Vietnam,VNM,iso_3166
+Republic of Vanuatu,VUT,iso_3166
+Vanuatu,VUT,iso_3166
+Wallis and Futuna,WLF,iso_3166
+Independent State of Samoa,WSM,iso_3166
+Samoa,WSM,iso_3166
+Samoa (Western Samoa),WSM,census_schedule_c
+Republic of Yemen,YEM,iso_3166
+Yemen,YEM,iso_3166
+Yemen (Republic of Yemen),YEM,census_schedule_c
+Republic of South Africa,ZAF,iso_3166
+South Africa,ZAF,iso_3166
+Republic of Zambia,ZMB,iso_3166
+Zambia,ZMB,iso_3166
+Republic of Zimbabwe,ZWE,iso_3166
+Zimbabwe,ZWE,iso_3166
