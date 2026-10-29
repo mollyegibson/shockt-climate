@@ -45,6 +45,10 @@ This plan covers getting source data into the `raw` and `core` layers of the Sho
 | EPA GHG Emission Factors Hub | XLSX download | None | Vehicle type; gas | n/a | North American truck and rail factors (Table 8) and GWPs (Table 11); public domain |
 | Census Schedules C and D | Text and HTML downloads | None | Country; district and port | n/a | Census country and port code lists (Section 6) |
 | Climate TRACE `shipping_voyages` | BigQuery public dataset | Google account + sandbox project | Voyage | Distance and emissions per voyage; no cargo tonnage | Port fields in generic `other*` columns (Section 5.7) |
+| EU CBAM default values | XLSX download (one sheet per country) | None | Exporting country × CN code | n/a | Embedded emissions in tCO₂eq per tonne of good, direct, indirect and total, for cement, iron and steel, aluminium, fertilisers and hydrogen (Section 6.1); the loaded version is read from the workbook's Version History sheet; European Commission content, which its legal notice licenses as CC BY 4.0 unless otherwise indicated |
+| Open CEDA 2025 | XLSX download (S3) | None | Country × industry | n/a | Spend-based emission factors in kgCO₂e per US dollar, 2023 prices (Section 6.1); CC BY-SA per the AWS Open Data registry |
+| OECD maritime transport CO₂ emissions (experimental) | SDMX 2.1 REST API | None | Month × operator country | n/a | Tonnes of CO₂ by the country of the operating company, from 2019, in the monthly series only; ship types exist only for the `W` and `OECD` aggregates; dataset licence not confirmed |
+| SBTi Target Dashboard | Two XLSX downloads, refreshed weekly | None | Company; company × target or commitment | n/a | Targets and commitments by company, with ISIN and LEI where known; terms of use not found |
 
 The Climate TRACE REST API (`api.climatetrace.org/v7`) only serves shipping as annual totals per port. It has no voyages and no monthly data, so it isn't used.
 
@@ -127,6 +131,10 @@ data-pipelines/
       denue.py                # INEGI DENUE establishments in the case industries
       ghg_factors.py          # UK conversion factors and EPA Hub workbooks, loaded whole
       census_state_port.py    # quarterly State/Port fixed-width files
+      cbam.py                 # EU CBAM default values workbook, loaded whole
+      open_ceda.py            # Open CEDA workbook, GHG_t_Raw sheet
+      oecd_maritime.py        # OECD maritime CO2 emissions, SDMX-CSV, one year per load
+      sbti.py                 # SBTi by-company and by-target workbooks
     reference/
       config_seeds.py         # writes seed_hs_case_codes.csv from config
       census_schedules.py     # writes the Census country and port seeds
@@ -616,13 +624,17 @@ Rules applied to reference data live in dbt macros or models, each with a test p
 
 ### 6.1 Emission factors
 
-Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors` and `shockt ingest epa-ghg-hub` archive the two workbooks pinned under `emission_factors` in `config/sources.yaml` (URL, version, publication page) and load every row into `raw`:
+Factors are loaded whole, not selected. `shockt ingest uk-ghg-factors`, `epa-ghg-hub`, `cbam-default-values` and `open-ceda` archive the four workbooks pinned under `emission_factors` in `config/sources.yaml` (URL, version, publication page) and load every row into `raw`:
 
 | Raw table | From |
 |---|---|
 | `raw.uk_ghg_conversion_factors` | UK DESNZ conversion factors 2026, flat file, sheet "Factors by Category": every row, with its ID, Level 1–4, Column Text, unit, GHG unit and factor |
 | `raw.epa_ghg_transport_factors` | EPA GHG Emission Factors Hub 2025, Table 8: every vehicle type and unit |
 | `raw.epa_ghg_gwp` | The same workbook, Table 11: every gas's 100-year GWP |
+| `raw.cbam_default_values` | EU CBAM default values, every country sheet: one row per country and CN code, with direct, indirect and total emissions and the production route; a cell the source fills with "-", "N/A" or "see below" is null, with the text in a note column |
+| `raw.open_ceda_factors` | Open CEDA 2025, sheet `GHG_t_Raw`: one row per country and industry, in kgCO₂e per US dollar |
+
+`core.ref_emission_factors` derives its freight factors from the UK and EPA tables only; the CBAM and Open CEDA tables have no `core` model yet.
 
 `core.ref_emission_factors` holds every freight factor per tonne-km from both sources, in kg CO₂e, split into tank-to-wheel (fuel burned), well-to-tank (producing and delivering the fuel) and their sum, well-to-wheel. Each rule below is a dbt macro or model with a test:
 
@@ -878,6 +890,7 @@ If Postgres grows past 750 MB, trim in this order:
 | PortWatch pages | < 10 MB |
 | Climate TRACE query results (Parquet) | ~50 MB |
 | Reference downloads (DENUE ZIP 57.6 MB, GeoNames, OurAirports, concordance workbooks, UK and EPA factor workbooks) | ~100 MB |
+| CBAM (0.6 MB), Open CEDA (4.7 MB) and SBTi (8.2 MB) workbooks, OECD maritime CSVs (about 0.3 MB a year) | < 15 MB |
 
 The archive comes to roughly 0.5 GB, about a tenth of the allowance. These are estimates; the bucket's own usage is the current figure.
 

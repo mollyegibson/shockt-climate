@@ -24,3 +24,8 @@ sources:
       - name: epa_ghg_gwp
       - name: thetis_mrv
       - name: comext_trade
+      - name: cbam_default_values
+      - name: open_ceda_factors
+      - name: oecd_maritime_emissions
+      - name: sbti_companies
+      - name: sbti_targets
