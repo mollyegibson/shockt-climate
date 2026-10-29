@@ -31,6 +31,7 @@ from shockt.settings import PROJECT_ROOT, get_settings
 from shockt.sources import (
     bts_t100,
     bts_transborder,
+    cbam,
     census_api,
     census_concordance,
     census_state_port,
@@ -38,8 +39,11 @@ from shockt.sources import (
     comext,
     denue,
     ghg_factors,
+    oecd_maritime,
+    open_ceda,
     portwatch,
     reference,
+    sbti,
     thetis_mrv,
 )
 
@@ -634,6 +638,47 @@ def ingest_epa_ghg_hub(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) ->
         )
 
 
+@ingest_app.command("cbam-default-values")
+def ingest_cbam_default_values(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
+    """Load the EU CBAM default values for the definitive period, every country sheet."""
+    source = sources_config().emission_factors.cbam
+    _load_reference(
+        cbam.CBAM_DEFAULT_VALUES,
+        source.url,
+        cbam.FILENAME,
+        cbam.XLSX,
+        {"url": source.url, "version": source.version},
+        cbam.parse_workbook,
+        from_archive,
+    )
+
+
+@ingest_app.command("open-ceda")
+def ingest_open_ceda(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
+    """Load the Open CEDA country × industry emission factors (sheet GHG_t_Raw)."""
+    source = sources_config().emission_factors.open_ceda
+    _load_reference(
+        open_ceda.OPEN_CEDA_FACTORS,
+        source.url,
+        open_ceda.FILENAME,
+        open_ceda.XLSX,
+        {"url": source.url, "version": source.version, "sheet": open_ceda.SHEET},
+        open_ceda.parse_workbook,
+        from_archive,
+    )
+
+
+@ingest_app.command("sbti")
+def ingest_sbti(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
+    """Load the SBTi Target Dashboard by-company and by-target workbooks."""
+    source = sources_config().sbti
+    for target, url, filename, parse in (
+        (sbti.COMPANIES, source.companies_url, sbti.COMPANIES_FILENAME, sbti.parse_companies),
+        (sbti.TARGETS, source.targets_url, sbti.TARGETS_FILENAME, sbti.parse_targets),
+    ):
+        _load_reference(target, url, filename, sbti.XLSX, {"url": url}, parse, from_archive)
+
+
 @ingest_app.command("denue")
 def ingest_denue(from_archive: Annotated[bool, ARCHIVE_OPTION] = False) -> None:
     """Load DENUE establishments in the industries the case HS codes map to."""
@@ -725,6 +770,47 @@ def ingest_thetis_mrv(
             note = " (replaced earlier load)" if result.superseded_load_id else ""
             typer.echo(
                 f"{thetis_mrv.DATASET} {year}: {result.row_count:,} ships "
+                f"in {time.monotonic() - started:.1f}s{note}"
+            )
+
+
+@ingest_app.command("oecd-maritime")
+def ingest_oecd_maritime(
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
+    skip_existing: Annotated[
+        bool,
+        typer.Option(
+            help="Skip years already loaded for the same months. The current year is always "
+            "reloaded."
+        ),
+    ] = False,
+    from_archive: Annotated[
+        bool, typer.Option(help="Re-parse archived responses instead of calling the OECD API.")
+    ] = False,
+) -> None:
+    """Load OECD monthly maritime CO2 emissions by operator country, one year at a time."""
+    settings = get_settings()
+    config = sources_config().oecd_maritime
+    months = _month_range(start, end)
+    archive = NeonArchive(settings)
+
+    with make_client(timeout_seconds=config.timeout_seconds) as client, connect(settings) as conn:
+        done = manifest.succeeded_params(conn, oecd_maritime.DATASET) if skip_existing else {}
+        for year in months.years():
+            key = oecd_maritime.partition_key(year)
+            in_year = months.in_year(year)
+            if _already_loaded(done.get(key), in_year):
+                typer.echo(f"{oecd_maritime.DATASET} {key}: skipped (already loaded)")
+                continue
+            started = time.monotonic()
+            fetch = (
+                None if from_archive else partial(oecd_maritime.fetch_year, client, config, in_year)
+            )
+            result = oecd_maritime.load_year(conn, archive, config, year, in_year, fetch)
+            note = " (replaced earlier load)" if result.superseded_load_id else ""
+            typer.echo(
+                f"{oecd_maritime.DATASET} {key}: {result.row_count:,} rows "
                 f"in {time.monotonic() - started:.1f}s{note}"
             )
 

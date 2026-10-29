@@ -68,8 +68,8 @@ climatetrace:
   # container ships ("container" from OceanMind, "cargo.container" from Global Fishing Watch).
 
 emission_factors:
-  # Workbooks loaded whole by `shockt ingest uk-ghg-factors` and `shockt ingest epa-ghg-hub`;
-  # core.ref_emission_factors derives every freight factor from them.
+  # Workbooks loaded by `shockt ingest uk-ghg-factors`, `epa-ghg-hub`, `cbam-default-values` and
+  # `open-ceda`. core.ref_emission_factors derives every freight factor from the UK and EPA ones.
   uk:
     url: https://assets.publishing.service.gov.uk/media/6a6c9748862aaf18d9c62ac9/ghg-conversion-factors-2026-flat-format-revised.xlsx
     version: "2026 (revised July 2026)"
@@ -78,6 +78,20 @@ emission_factors:
     url: https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx
     version: "2025"
     publication: https://www.epa.gov/climateleadership/ghg-emission-factors-hub
+  cbam:
+    # EU CBAM default values for the definitive period, one sheet per country. The URL serves the
+    # current version of the file whatever its filename says; the loaded version is read from the
+    # workbook's Version History sheet.
+    url: https://taxation-customs.ec.europa.eu/document/download/1c05d211-80cb-4aaa-8ef0-e08005a95d7e_en?filename=DVs%20as%20adopted_v20260204%20.xlsx
+    version: "Annex I default values, Implementing Regulation (EU) 2026/1740"
+    publication: https://taxation-customs.ec.europa.eu/carbon-border-adjustment-mechanism/cbam-definitive-regime_en
+  open_ceda:
+    # Watershed's Open CEDA (now the Cornerstone EEIO model): spend-based cradle-to-gate factors,
+    # kgCO2e per US dollar of output by country and industry. Only the `GHG_t_Raw` sheet is
+    # loaded; the other sheets adjust it for year, currency and price type.
+    url: https://open-ceda.s3.us-west-2.amazonaws.com/data/Open%20CEDA%202025%20by%20Watershed.xlsx
+    version: "Open CEDA 2025"
+    publication: https://registry.opendata.aws/open-ceda/
 
 census_schedules:
   # Census reference lists of country codes (Schedule C) and districts and ports (Schedule D).
@@ -141,6 +155,20 @@ comext:
   partner_overrides:
     GZ: PS
     WE: PS
+
+oecd_maritime:
+  # OECD experimental maritime transport CO2 emissions: monthly tonnes of CO2 by the country where
+  # the operating company resides, from 2019. SDMX 2.1 REST API; no API key needed.
+  base_url: https://sdmx.oecd.org/public/rest
+  dataflow: OECD.SDD.NAD.SEEA,DSD_MARITIME_TRANSPORT@DF_MARITIME_TRANSPORT,1.0
+  timeout_seconds: 120
+
+sbti:
+  # Science Based Targets initiative Target Dashboard downloads, refreshed weekly. The by-target
+  # workbook has one row per company target or commitment, the by-company one a row per company.
+  companies_url: https://files.sciencebasedtargets.org/production/files/companies-excel.xlsx
+  targets_url: https://files.sciencebasedtargets.org/production/files/targets-excel.xlsx
+  publication: https://sciencebasedtargets.org/target-dashboard
 
 distances:
   # Generators that write the distance seeds (plan section 6.3), between the node pairs in

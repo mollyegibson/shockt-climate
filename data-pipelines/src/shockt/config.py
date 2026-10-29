@@ -180,6 +180,8 @@ class FactorSource(ConfigModel):
 class EmissionFactorsConfig(ConfigModel):
     uk: FactorSource
     epa: FactorSource
+    cbam: FactorSource
+    open_ceda: FactorSource
 
 
 class SeaDistancesConfig(ConfigModel):
@@ -232,6 +234,22 @@ class ComextConfig(ConfigModel):
     """Map non-standard ISO-2 codes to Comext partner codes (or None to drop)."""
 
 
+class OecdMaritimeConfig(ConfigModel):
+    base_url: str
+    """OECD SDMX 2.1 REST API base."""
+    dataflow: str
+    """Dataflow as `agency,id,version`."""
+    timeout_seconds: float
+
+
+class SbtiConfig(ConfigModel):
+    companies_url: str
+    """By-company workbook of the Target Dashboard."""
+    targets_url: str
+    """By-target workbook of the Target Dashboard."""
+    publication: str
+
+
 class EuReportersConfig(ConfigModel):
     reporters: list[str]
     """ISO 3166-1 alpha-2 codes of EU member states used as Comext reporters."""
@@ -256,6 +274,8 @@ class SourcesConfig(ConfigModel):
     emission_factors: EmissionFactorsConfig
     thetis_mrv: ThetisMrvConfig
     comext: ComextConfig
+    oecd_maritime: OecdMaritimeConfig
+    sbti: SbtiConfig
     distances: DistancesConfig
 
 

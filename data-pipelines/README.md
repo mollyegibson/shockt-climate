@@ -178,6 +178,15 @@ uv run shockt ingest comext --from 2022-01 --skip-existing
 uv run shockt ingest comext --from 2024-01 --to 2024-06 --from-archive
 ```
 
+Four further sources are loaded raw, with no `core` model yet. The EU CBAM default values (embedded emissions per tonne of good, by exporting country and CN code) and the Open CEDA spend-based factors (kg CO₂e per US dollar, by country and industry) are workbooks pinned under `emission_factors` in `config/sources.yaml`, archived unchanged and loaded whole. The SBTi Target Dashboard's by-company and by-target workbooks (weekly; company targets and commitments) load the same way from the `sbti` URLs. OECD monthly maritime CO₂ comes from its SDMX 2.1 REST API, one year per partition, with no API key; its country rows are all vessels, and ship types exist only for the `W` and `OECD` aggregates:
+
+```sh
+uv run shockt ingest cbam-default-values   # every country sheet of the Annex I workbook
+uv run shockt ingest open-ceda             # sheet GHG_t_Raw: country × industry matrix
+uv run shockt ingest sbti                  # by-company and by-target workbooks
+uv run shockt ingest oecd-maritime --from 2022-01 --skip-existing
+```
+
 Census ports and Climate TRACE arrival ports get their coast region from the same rule, `macros/coast_region.sql`, applied to each port's coordinates. `dim_port` places Census ports from BTS border crossings, OurAirports and GeoNames; ports it can't place are `unknown`, and a test bounds their share of case tonnage.
 
 ### The `core` schema

@@ -218,6 +218,10 @@ shockt ingest census-concordance [--year 2024 …] [--from-archive]
 shockt ingest denue [--from-archive]                 # after census-concordance
 shockt ingest uk-ghg-factors [--from-archive]        # UK conversion factors workbook, every row
 shockt ingest epa-ghg-hub [--from-archive]           # EPA Hub Tables 8 and 11
+shockt ingest cbam-default-values [--from-archive]    # EU CBAM default values, every country sheet
+shockt ingest open-ceda [--from-archive]             # Open CEDA country × industry factors, sheet GHG_t_Raw
+shockt ingest sbti [--from-archive]                  # SBTi Target Dashboard by-company and by-target workbooks
+shockt ingest oecd-maritime [--from …] [--to …] [--skip-existing] [--from-archive]   # one year per request
 shockt ref config-seeds                              # seed_hs_case_codes from config/hs_codes.yaml
 shockt ref census-schedules                          # seed_census_countries and seed_census_ports
 shockt ref sea-distances                             # seed_sea_distances, searoute, every scenario
