@@ -76,3 +76,11 @@ prefixes:
   - prefix: "9503"
     cases:
       - toys_seating
+  # Refrigeration compressors.
+  - prefix: "841430"
+    cases:
+      - refrigeration
+  # Stainless steel flat-rolled sheet (candidate: confirm exact commodity before reporting).
+  - prefix: "721934"
+    cases:
+      - refrigeration

@@ -9,6 +9,7 @@ Notebooks for the case studies. They read `core` with the read-only analyst logi
 | `src/shockt_analysis/case2.py` | Case 2's own steps: shock windows from chokepoint transits, which lanes use which passage, coast-of-arrival lanes and the supply mix's cells |
 | `case1/case1_tariffs_2025.ipynb` | The Case 1 notebook |
 | `case2/case2_panama_red_sea.ipynb` | The Case 2 notebook |
+| `refrigeration/refrigeration_tariffs.ipynb` | Refrigerator components (compressors, steel sheet candidate) under 2025 tariffs |
 
 ## Setup
 

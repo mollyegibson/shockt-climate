@@ -1,0 +1,72 @@
+# Shock windows for the refrigeration case, the 2025 trade-policy shocks applied to refrigerator
+# components. Draft: illustrative windows from the tariffs_2025 case (docs/plans/case-1-analysis.md,
+# section 4), since neither 841430 (compressors) nor 721934 (steel sheet) was excluded from the
+# reciprocal tariffs. Windows are whole months, both ends included.
+
+case: refrigeration
+status: draft
+windows:
+  - id: baseline
+    shock: null
+    type: baseline
+    first_month: 2024-01
+    last_month: 2025-01
+    lanes:
+      - CHN-US
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+      - KOR-US
+    method: illustrative
+    note: The 12 months before the first 2025 tariff order (EO 14194, February 1, 2025).
+    evidence:
+      - ev_refrig_eo14194_mexico_duty
+
+  - id: anticipation
+    shock: trade_policy_2025
+    type: anticipation
+    first_month: 2025-02
+    last_month: 2025-04
+    lanes:
+      - CHN-US
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+      - KOR-US
+    method: illustrative
+    note: >
+      From the Mexico duty order to the reciprocal tariffs. Unlike servers (heading 8471),
+      heading 8414 (compressors) and heading 7219 (steel sheet) were not excluded.
+    evidence:
+      - ev_refrig_eo14194_mexico_duty
+      - ev_refrig_eo14198_mexico_pause
+      - ev_refrig_cbp_mexico_implementation
+      - ev_refrig_eo14232_usmca_exemption
+      - ev_refrig_eo14257_reciprocal_tariff
+      - ev_refrig_no_exclusion_8414
+      - ev_refrig_no_exclusion_7219
+
+  - id: response
+    shock: trade_policy_2025
+    type: response
+    first_month: 2025-05
+    last_month: 2025-12
+    lanes:
+      - CHN-US
+      - TWN-US
+      - MEX-US
+      - THA-US
+      - VNM-US
+      - KOR-US
+    method: illustrative
+    note: >
+      After the reciprocal tariffs, to the end of 2025. Includes the August rate change. HS 721934
+      (steel sheet) may also be subject to the Section 232 steel duties from 2018; verify against the
+      HTSUS treatment before finalising this window's evidence.
+    evidence:
+      - ev_refrig_eo14257_reciprocal_tariff
+      - ev_refrig_eo14326_rate_modification
+      - ev_refrig_no_exclusion_8414
+      - ev_refrig_no_exclusion_7219

@@ -1,0 +1,153 @@
+# Evidence records for the refrigeration case, 2025 tariffs on refrigerator components. Draft: the
+# input file schema isn't fixed yet. FACT records quote or paraphrase their official source, checked
+# against the source's own text. The shared tariff events are duplicated from tariffs_2025 with
+# refrigeration-specific ids.
+
+case: refrigeration
+status: draft
+records:
+  - id: ev_refrig_eo14257_reciprocal_tariff
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14257 imposed an additional 10% ad valorem duty on imports from 12:01 a.m.
+      EDT on April 5, 2025, and higher country-specific rates from 12:01 a.m. EDT on April 9, 2025.
+    source:
+      title: >
+        Regulating Imports With a Reciprocal Tariff To Rectify Trade Practices That Contribute to
+        Large and Persistent Annual United States Goods Trade Deficits
+      issuer: Executive Office of the President
+      signed: 2025-04-02
+      published: 2025-04-07
+      citation: 90 FR 15041
+      document_number: 2025-06063
+      url: https://www.federalregister.gov/documents/2025/04/07/2025-06063/regulating-imports-with-a-reciprocal-tariff-to-rectify-trade-practices-that-contribute-to-large-and
+
+  - id: ev_refrig_no_exclusion_8414
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The CBP exclusion list for the reciprocal tariffs names no subheading of heading 8414
+      (compressors), so HS 841430 stayed subject to the reciprocal tariffs from April 5, 2025.
+    source:
+      title: >
+        CSMS # 64724565 - UPDATED GUIDANCE - Reciprocal Tariff Exclusion for Specified Products;
+        April 5, 2025 Effective Date
+      issuer: U.S. Customs and Border Protection
+      published: 2025-04-11
+      url: https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3db9e55
+    note: >
+      The list names 8471, 8473.30, 8486, 8517.13.00, 8517.62.00, 8523.51.00, 8524, 8528.52.00,
+      8541 subheadings and 8542. No 8414 entry.
+
+  - id: ev_refrig_no_exclusion_7219
+    basis: FACT
+    source_type: official_document
+    claim: >
+      The CBP exclusion list for the reciprocal tariffs names no subheading of heading 7219
+      (stainless steel flat-rolled), so HS 721934 stayed subject to the reciprocal tariffs from
+      April 5, 2025.
+    source:
+      title: >
+        CSMS # 64724565 - UPDATED GUIDANCE - Reciprocal Tariff Exclusion for Specified Products;
+        April 5, 2025 Effective Date
+      issuer: U.S. Customs and Border Protection
+      published: 2025-04-11
+      url: https://content.govdelivery.com/accounts/USDHSCBP/bulletins/3db9e55
+    note: >
+      HS 721934 (primary steel sheet) is also likely subject to the 2018 Section 232 steel duties
+      (Proclamation 9705). Verify the HTSUS treatment before finalising evidence.
+
+  - id: ev_refrig_eo14326_rate_modification
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14326 replaced the reciprocal rates for listed trading partners from 12:01
+      a.m. EDT seven days after July 31, 2025 (August 7, 2025), subject to all applicable
+      exceptions in Executive Order 14257 as amended. No exception covers 8414 or 7219.
+    source:
+      title: Further Modifying the Reciprocal Tariff Rates
+      issuer: Executive Office of the President
+      signed: 2025-07-31
+      published: 2025-08-06
+      citation: 90 FR 37963
+      document_number: 2025-15010
+      url: https://www.federalregister.gov/documents/2025/08/06/2025-15010/further-modifying-the-reciprocal-tariff-rates
+
+  - id: ev_refrig_eo14194_mexico_duty
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14194 imposed an additional 25% ad valorem duty on products of Mexico,
+      originally from February 4, 2025.
+    source:
+      title: Imposing Duties To Address the Situation at Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-02-01
+      published: 2025-02-07
+      citation: 90 FR 9117
+      document_number: 2025-02407
+      url: https://www.federalregister.gov/documents/2025/02/07/2025-02407/imposing-duties-to-address-the-situation-at-our-southern-border
+
+  - id: ev_refrig_eo14198_mexico_pause
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14198 paused the 25% duty on products of Mexico until 12:01 a.m. eastern time
+      on March 4, 2025.
+    source:
+      title: Progress on the Situation at Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-02-03
+      published: 2025-02-10
+      citation: 90 FR 9185
+      document_number: 2025-02479
+      url: https://www.federalregister.gov/documents/2025/02/10/2025-02479/progress-on-the-situation-at-our-southern-border
+
+  - id: ev_refrig_cbp_mexico_implementation
+    basis: FACT
+    source_type: official_document
+    claim: >
+      CBP implemented the additional duty on products of Mexico for goods entered on or after
+      12:01 a.m. EST on March 4, 2025.
+    source:
+      title: >
+        Notice of Implementation of Additional Duties on Products of Mexico Pursuant to the
+        President's Executive Order 14194, Imposing Duties To Address the Situation at Our Southern
+        Border
+      issuer: U.S. Customs and Border Protection
+      published: 2025-03-06
+      citation: 90 FR 11429
+      document_number: 2025-03665
+      url: https://www.federalregister.gov/documents/2025/03/06/2025-03665/notice-of-implementation-of-additional-duties-on-products-of-mexico-pursuant-to-the-presidents
+
+  - id: ev_refrig_eo14232_usmca_exemption
+    basis: FACT
+    source_type: official_document
+    claim: >
+      Executive Order 14232 exempted from the duty on products of Mexico the articles that enter
+      free of duty as goods of Mexico under general note 11 of the HTSUS (USMCA treatment), for
+      goods entered on or after 12:01 a.m. EST on March 7, 2025.
+    source:
+      title: Amendment to Duties To Address the Flow of Illicit Drugs Across Our Southern Border
+      issuer: Executive Office of the President
+      signed: 2025-03-06
+      published: 2025-03-11
+      citation: 90 FR 11787
+      document_number: 2025-03991
+      url: https://www.federalregister.gov/documents/2025/03/11/2025-03991/amendment-to-duties-to-address-the-flow-of-illicit-drugs-across-our-southern-border
+    note: >
+      Whether refrigerator components assembled in Mexico qualify for USMCA treatment depends on
+      their rules of origin, which this record doesn't establish.
+
+  - id: ev_refrig_ge_haier_context
+    basis: INFERENCE
+    source_type: team_analysis
+    claim: >
+      GE Appliances (Haier) manufactures refrigerators using steel cabinets and compressors, with
+      supply chains running from Chinese manufacturers to US ports. Competitors manufacture in the
+      US and Sweden. The 2025 tariffs created a component backlog. Census trade data is aggregate
+      and does not prove a GE Appliances or Haier supplier, shipment, or destination.
+    note: >
+      Context from the handover package. Do not report aggregate Census results as company-specific
+      emissions without separate evidence connecting the commodity flow to the company.
