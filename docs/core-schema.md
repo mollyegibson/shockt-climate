@@ -278,7 +278,7 @@ erDiagram
   dim_country ||..o{ agg_voyage_lanes_monthly : "origin_iso3 = iso3"
 ```
 
-- `dim_climatetrace_ports`: US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the voyages' end points, the most common port name, the coast region from the `coast_region` macro, and voyage counts (all ship types and container ships) for the loaded years and lanes.
+- `dim_climatetrace_ports`: US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the voyages' end points, the most common port name, the coast region from the `coast_region` macro, and voyage counts (all loaded ship types, and container ships) for the loaded years and lanes. The loader keeps container ships only (`climatetrace.vessel_types`), so the two counts match.
 - `fct_voyages`: Container-ship voyages (Climate TRACE) from the configured Asian origins and Mexico to US ports.
 - `agg_voyage_lanes_monthly`: Container-ship voyages by start month, origin country and US coast region: voyage count, distance sailed, duration and CO2e.
 - `fct_chokepoint_transits_daily`: Daily ship transits through the configured chokepoints (IMF PortWatch), by ship type, with estimated trade volume in metric tons (each ship's estimated payload share × deadweight tonnage).

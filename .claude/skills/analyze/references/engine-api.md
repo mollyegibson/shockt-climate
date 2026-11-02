@@ -178,6 +178,15 @@ Tonnes and share of each category within each window.
 ### `cases.share_changes(window_share_frame, baseline, window, key) → dict[str, float]`
 Each category's change in share from baseline to window.
 
+### `cases.months_earlier(window, months, name) → Window`
+The window moved `months` earlier, for same-months comparisons (e.g. a year earlier).
+
+### `cases.full_years(window) → list[Window]`
+The calendar years wholly inside a window, one window each, named by year.
+
+### `cases.shares_within(monthly, windows, group, category) → DataFrame`
+Each category's share of tonnage within each group per window (e.g. each mode's share of an origin's tonnes).
+
 ### `cases.LaneContext(weights, observed_sea, distances, factors, crossing_plants)`
 Everything the lanes need besides the lane itself.
 
@@ -209,5 +218,5 @@ Air value per kg across all origins' months before `before`.
 ### `cases.reweight_air(supply, suspect, usd_per_kg, default=None) → DataFrame`
 `supply` with suspect months' air tonnes recomputed as value ÷ `usd_per_kg`.
 
-### `cases.plot_waterfall(ax, decomposition, labels, title, window_label="window")`
+### `cases.plot_waterfall(ax, decomposition, labels, title, window_label="window", baseline_label="baseline")`
 A waterfall chart from baseline mix to window's, one bar per Shapley effect.

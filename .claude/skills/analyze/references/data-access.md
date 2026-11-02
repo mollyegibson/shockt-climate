@@ -70,6 +70,10 @@ low/high estimates for Mexican overland modes.
 Columns: `month`, `census_cty_code`, `iso3`, `cty_name`, `hs6`, `mode`, `weight_t`,
 `weight_t_low`, `weight_t_high`.
 
+### `import_values(conn, hs6: list[str]) → DataFrame`
+Monthly import value by origin and HS-6, all modes (for shares by value).
+Columns: `month`, `census_cty_code`, `iso3`, `hs6`, `value_usd`.
+
 ### `imports_by_port(conn, hs6: list[str]) → DataFrame`
 Monthly air and vessel tonnage by origin, HS-6, US port and its coast region.
 Columns: `month`, `census_cty_code`, `iso3`, `region`, `hs6`, `mode`, `port_code`,

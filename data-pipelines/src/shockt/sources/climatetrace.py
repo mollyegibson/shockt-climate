@@ -1,8 +1,9 @@
 """Climate TRACE ship voyages, queried from the public BigQuery dataset.
 
 One partition is one calendar year of voyage start dates, matching the table's partitioning.
-The whole year is queried and archived, since a year costs the same to scan whole or in part;
-only voyages starting in the requested months are loaded.
+The whole year is queried and archived, every ship type included, since a year costs the same to
+scan whole or in part; only voyages of the configured ship types starting in the requested months
+are loaded.
 Every query runs as a free dry run first and is refused if it would scan more than the
 configured byte cap; the real query runs with the same cap as `maximum_bytes_billed`. Each
 year's result is archived as Parquet, with the query, release and bytes scanned in the file
@@ -11,7 +12,7 @@ metadata, then parsed from the archived copy.
 
 import io
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -167,9 +168,11 @@ def fetch_year(
     return buffer.getvalue()
 
 
-def parse_year(body: bytes, year: int, months: MonthRange) -> ParsedSource:
-    """Rows for `raw.climatetrace_voyages` from one archived year of Parquet, for voyages
-    starting in `months`."""
+def parse_year(
+    body: bytes, year: int, months: MonthRange, vessel_types: Collection[str]
+) -> ParsedSource:
+    """Rows for `raw.climatetrace_voyages` from one archived year of Parquet, for voyages of
+    `vessel_types` starting in `months`."""
     table = pq.read_table(io.BytesIO(body))
     raw_metadata = (table.schema.metadata or {}).get(METADATA_KEY)
     if raw_metadata is None:
@@ -193,7 +196,7 @@ def parse_year(body: bytes, year: int, months: MonthRange) -> ParsedSource:
                 f"voyage {record['asset_identifier']} starts {start}, not in {year}"
             )
         key = (record["asset_identifier"], start)
-        if key in seen or not months.contains(start.date()):
+        if key in seen or record["type"] not in vessel_types or not months.contains(start.date()):
             continue
         seen.add(key)
         rows.append(tuple(record[c] for c in RESULT_COLUMNS))
@@ -234,9 +237,10 @@ def load_year(
             **months.as_params(),
             "origin_iso3": list(origins),
             "destination_iso3": DESTINATION_ISO3,
+            "vessel_types": list(config.vessel_types),
         },
         obtain=fetch,
-        parse=lambda body: parse_year(body, year, months),
+        parse=lambda body: parse_year(body, year, months, config.vessel_types),
     )
 
 

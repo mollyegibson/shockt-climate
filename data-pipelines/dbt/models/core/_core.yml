@@ -346,7 +346,8 @@ models:
     description: >
       US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the
       voyages' end points, the most common port name, the coast region from the `coast_region` macro,
-      and voyage counts (all ship types and container ships) for the loaded years and lanes.
+      and voyage counts (all loaded ship types, and container ships) for the loaded years and lanes.
+      The loader keeps container ships only (`climatetrace.vessel_types`), so the two counts match.
     columns:
       - name: end_port_id
         data_tests: [unique, not_null]

@@ -98,7 +98,7 @@ uv run shockt ingest portwatch                       # all configured chokepoint
 uv run shockt ingest portwatch --skip-existing       # skip years already loaded for the same months
 ```
 
-Climate TRACE ship voyages come from its public BigQuery dataset, one year per load, billed to your sandbox project (`GCP_PROJECT_ID`, after `gcloud auth application-default login`). Every query is dry-run first and refused above `BQ_MAX_BYTES`; the full 2022-onward load scans about 30 GB of the free 1 TB a month:
+Climate TRACE ship voyages come from its public BigQuery dataset, one year per load, billed to your sandbox project (`GCP_PROJECT_ID`, after `gcloud auth application-default login`). Every query is dry-run first and refused above `BQ_MAX_BYTES`; the full 2022-onward load scans about 30 GB of the free 1 TB a month. The archive keeps every ship type, but only the types in `climatetrace.vessel_types` (`config/sources.yaml`, container ships) load into `raw`; after changing that list, reload with `--from-archive`:
 
 ```sh
 uv run shockt ingest climatetrace-voyages --dry-run        # bytes each year would scan; no quota used

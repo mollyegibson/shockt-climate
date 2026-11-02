@@ -164,3 +164,40 @@ def test_reweight_air_uses_the_default_for_an_origin_without_a_ratio() -> None:
 
     march = reweighted.filter((pl.col("month") == date(2024, 3, 1)) & (pl.col("iso3") == "TWN"))
     assert march["weight_t"].to_list() == [pytest.approx(0.03)]
+
+
+def test_months_earlier_crosses_a_year() -> None:
+    window = Window("response", date(2025, 5, 1), date(2025, 12, 1))
+
+    earlier = cases.months_earlier(window, 12, "a year earlier")
+
+    assert earlier == Window("a year earlier", date(2024, 5, 1), date(2024, 12, 1))
+    assert cases.months_earlier(window, 5, "x").first == date(2024, 12, 1)
+
+
+def test_full_years_keeps_only_whole_calendar_years() -> None:
+    window = Window("red_sea", date(2023, 12, 1), date(2025, 1, 1))
+
+    assert cases.full_years(window) == [Window("2024", date(2024, 1, 1), date(2024, 12, 1))]
+    assert cases.full_years(Window("w", date(2022, 1, 1), date(2023, 6, 1))) == [
+        Window("2022", date(2022, 1, 1), date(2022, 12, 1))
+    ]
+
+
+def test_shares_within_divides_by_each_groups_total() -> None:
+    monthly = cases.monthly_supply(supply_frame(), ["847150"], ["TWN", "MEX"])
+    origin_modes = monthly.with_columns(
+        pl.when(pl.col("month") == date(2024, 2, 1))
+        .then(pl.lit("rail"))
+        .otherwise(pl.col("mode"))
+        .alias("mode")
+    )
+
+    within = cases.shares_within(origin_modes, WINDOWS, "origin_group", "mode")
+
+    mex = dict(
+        within.filter((pl.col("window") == "baseline") & (pl.col("origin_group") == "MEX"))
+        .select("mode", "share")
+        .iter_rows()
+    )
+    assert mex == pytest.approx({"truck": 0.5, "rail": 0.5})

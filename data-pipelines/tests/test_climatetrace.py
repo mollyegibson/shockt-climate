@@ -26,7 +26,10 @@ from tests.conftest import MemoryArchive
 YEAR_2024 = MonthRange("2024-01", "2024-12")
 ORIGINS = ["TWN", "MEX"]
 
-CONFIG = ClimateTraceConfig(table="project.dataset.shipping_voyages")
+CONFIG = ClimateTraceConfig(
+    table="project.dataset.shipping_voyages", vessel_types=["container", "cargo.container"]
+)
+TYPES = CONFIG.vessel_types
 
 
 def voyage(**overrides: object) -> dict[str, object]:
@@ -124,7 +127,7 @@ def test_fetch_year_runs_with_the_cap_and_records_metadata() -> None:
 
 
 def test_parse_year_maps_columns_and_drops_duplicate_voyages() -> None:
-    parsed = parse_year(parquet([voyage(), voyage()], 2024), 2024, YEAR_2024)
+    parsed = parse_year(parquet([voyage(), voyage()], 2024), 2024, YEAR_2024, TYPES)
 
     assert parsed.rows_received == 2
     assert len(parsed.rows) == 1
@@ -142,12 +145,12 @@ def test_parse_year_rejects_a_voyage_from_another_year() -> None:
     body = parquet([voyage(start_date=datetime(2023, 12, 31, tzinfo=UTC))], 2024)
 
     with pytest.raises(ClimateTraceError, match="not in 2024"):
-        parse_year(body, 2024, YEAR_2024)
+        parse_year(body, 2024, YEAR_2024, TYPES)
 
 
 def test_parse_year_rejects_a_file_archived_for_another_year() -> None:
     with pytest.raises(ClimateTraceError, match="for 2024, not 2025"):
-        parse_year(parquet([voyage()], 2024), 2025, MonthRange("2025-01", "2025-12"))
+        parse_year(parquet([voyage()], 2024), 2025, MonthRange("2025-01", "2025-12"), TYPES)
 
 
 def test_load_year_records_bytes_processed_in_the_manifest(
@@ -172,14 +175,14 @@ def test_parse_year_rejects_an_archive_without_port_coordinates() -> None:
     body = parquet([old], 2024)
 
     with pytest.raises(ClimateTraceError, match="reload the year"):
-        parse_year(body, 2024, YEAR_2024)
+        parse_year(body, 2024, YEAR_2024, TYPES)
 
 
 def test_parse_year_keeps_only_voyages_starting_in_the_requested_months() -> None:
     july = voyage(asset_identifier="om-imo-1", start_date=datetime(2024, 7, 1, tzinfo=UTC))
     body = parquet([voyage(), july], 2024)
 
-    parsed = parse_year(body, 2024, MonthRange("2024-01", "2024-06"))
+    parsed = parse_year(body, 2024, MonthRange("2024-01", "2024-06"), TYPES)
 
     assert parsed.rows_received == 2
     assert [row[RESULT_COLUMNS.index("asset_identifier")] for row in parsed.rows] == [
@@ -202,6 +205,7 @@ def test_load_year_records_the_months_loaded(
     assert params is not None
     assert (params[0]["first_month"], params[0]["last_month"]) == ("2024-01", "2024-06")
     assert params[0]["origin_iso3"] == ORIGINS
+    assert params[0]["vessel_types"] == TYPES
 
 
 def test_load_year_rejects_months_outside_the_year(
@@ -217,3 +221,22 @@ def test_load_year_rejects_months_outside_the_year(
             MonthRange("2024-06", "2025-02"),
             lambda: b"",
         )
+
+
+def test_parse_year_keeps_only_the_configured_ship_types() -> None:
+    body = parquet(
+        [
+            voyage(),
+            voyage(asset_identifier="gfw-imo-2", type="cargo.container"),
+            voyage(asset_identifier="om-imo-3", type="bulk_carrier"),
+        ],
+        2024,
+    )
+
+    parsed = parse_year(body, 2024, YEAR_2024, TYPES)
+
+    assert parsed.rows_received == 3
+    assert [row[RESULT_COLUMNS.index("type")] for row in parsed.rows] == [
+        "container",
+        "cargo.container",
+    ]

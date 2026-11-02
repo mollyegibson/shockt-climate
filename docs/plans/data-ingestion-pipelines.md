@@ -523,8 +523,8 @@ CREATE TABLE raw.portwatch_chokepoints (
 
 - **Lane volume:** the full load for the 42-country origins (2022 to July 2026) has 56,428 voyages to US ports across all ship types, 12,741 by container ships; `core` keeps container ships whose end point doesn't contradict their end port (12,739). Widening the origins from 12 countries added only about 2,000 voyages: nearly all US-bound traffic from Asia starts in the original 12.
 - **Query size:** the full extraction for 2022 onward scans 29.5 GB (6.7 GB for one year), about 3% of the free monthly 1 TB. Partition pruning on `start_date` works.
-- **Filter:** `start_date` in the date range's years, `other5 = 'USA'` (the product's scope, a constant rather than config), `other4` in the ISO3 codes of the origins in `config/origins.yaml`, looked up in `seed_census_countries` (Census Schedule C). All ship types.
-- **Partition:** calendar year of `start_date`, matching the table's partitioning. A year costs the same to scan whole or in part, so the whole year is queried and archived; only voyages starting inside the date range load, and the manifest `params` record the first and last month loaded. `--skip-existing` skips a year only when its loaded months and origin countries both match the request, so widening the origins reloads every year. **Version:** the table's `release` label.
+- **Filter:** `start_date` in the date range's years, `other5 = 'USA'` (the product's scope, a constant rather than config), `other4` in the ISO3 codes of the origins in `config/origins.yaml`, looked up in `seed_census_countries` (Census Schedule C). The query and archive keep all ship types; parsing loads only `climatetrace.vessel_types` (`config/sources.yaml`: `container`, `cargo.container`), recorded in the manifest `params`.
+- **Partition:** calendar year of `start_date`, matching the table's partitioning. A year costs the same to scan whole or in part, so the whole year is queried and archived; only voyages starting inside the date range load, and the manifest `params` record the first and last month loaded. `--skip-existing` skips a year only when its loaded months, origin countries and ship types all match the request, so widening the origins or the ship types reloads every year. **Version:** the table's `release` label.
 
 Raw keeps the source column names, including `other*`; staging renames them using the meanings above.
 
@@ -564,6 +564,29 @@ CREATE TABLE raw.climatetrace_voyages (
   PRIMARY KEY (load_id, asset_identifier, start_date)
 );
 ```
+
+#### 5.7.1 Feeder voyages (planned)
+
+**Why.** Departure ports come from container voyages that end in the US, so an origin whose US-bound cargo transships at a hub has no departure ports and no computable sea lane. For apparel this leaves out Bangladesh, Cambodia, Jordan and Myanmar, about a fifth of the tonnage in the 2025 response window ([apparel plan](./apparel-analysis.md), Section 4).
+
+**Spike (2026-11-02).** One aggregate over the 2024 partition of `shipping_voyages` for six origins scanned 1.70 GB. Container voyages to other countries in 2024 (moves within the origin country excluded):
+
+| Origin | Start ports | Destinations (voyages) | To the US |
+|---|---|---|---|
+| Bangladesh | Chittagong, Mongla | Singapore 446, Sri Lanka 295, Malaysia 172, Indonesia 113 | 0 |
+| Cambodia | Sihanoukville | Thailand 354, Singapore 114, Indonesia 62, Vietnam 34 | 0 |
+| Myanmar | Yangon, Thilawa | Singapore 143, India 71, Malaysia 71 | 0 |
+| Jordan | Aqaba | Egypt 89, Israel 72, Saudi Arabia 51 | 0 |
+
+**Design.**
+
+- **Load:** a second query, `climatetrace_feeder_voyages`, for the origins in a new `climatetrace.feeder_origins` list in `config/sources.yaml`, container ships only, ending outside the origin country. The origins are a declared choice: those with case vessel tonnage and no container voyages to the US, which a dbt test reports.
+- **Size:** about 2,400 voyages a year for the four origins, about 11,000 rows for 2022 to 2026 and about 8 MB at the current table's 740 bytes a row. Adding Sri Lanka and Pakistan raises it to about 22 MB.
+- **Hub shares:** a `core` model of each feeder origin's voyages by destination port and month; the share of voyages to each hub port weights the feeder leg.
+- **Hub to the US:** observed voyages from the hub's country where loaded (Singapore 101 and Sri Lanka 206 container voyages to the US in 2024; none from Malaysia or Thailand), `searoute` otherwise.
+- **Engine:** a sea leg in two parts, origin port → hub port → US seaport. The notebooks show it beside a direct `searoute` distance from the origin's start ports, so the hub detour is a range.
+
+**Limits.** A voyage is one leg of a ship's rotation, not a cargo itinerary: a Chittagong → Singapore voyage doesn't say its boxes continue to the US, and loop services look like trade (Pakistan → India, 716 voyages in 2024). The hub shares are where the origin's container ships call next, which stands in for where its US-bound cargo transships.
 
 ### 5.8 BTS T-100 International Segment (`bts_t100_segments`)
 
@@ -873,11 +896,16 @@ The free tier allows 1 GB of Postgres storage and, separately, 5 GB of object st
 
 `shockt loads list` reports every raw table's size; it, not this plan, is the current figure. Measured on Neon on 2026-10-12, after the full load, retiring the HS-4 loads and `VACUUM FULL`: the database is 141 MB, about 14% of the limit. `raw` is 121 MB: `climatetrace_voyages` 42 MB (56,428 voyages, all ship types), `census_import_concordance` 31 MB (2022–2026), `census_porths` 11.5 MB, `census_statehs` 10.3 MB, `bts_transborder` 5.7 MB, `uk_ghg_conversion_factors` 4.7 MB, `census_hs` 4.4 MB, `portwatch_chokepoints` 3.6 MB, and every other table under 2.5 MB. `core` is 16 MB. Loading `census_state_port` (Section 5.4) adds about 80 MB; `bts_t100_segments` (Section 5.8) keeps about 7,600 rows a year, a few MB.
 
+**Measured 2026-11-02: the database is 845 MB of 1,024 MB.** Free space (179 MB) is at the 150–200 MB that `dbt build` needs for its temporary copies (data-pipelines README, "Storage on the free tier"). Largest tables: `raw.census_hs` 140 MB, `raw.census_porths` 106 MB, `raw.census_statehs` 90 MB, `core.fct_node_weights_monthly` 86 MB, `core.fct_imports_monthly` 84 MB, `core.fct_imports_port_monthly` 47 MB, `raw.climatetrace_voyages` 40 MB, `core.fct_import_duties_monthly` 35 MB.
+
+**Container ships only in `raw.climatetrace_voyages` (built 2026-11-02, awaiting the reload).** 43,687 of its 56,428 rows (77%) are other ship types, and every `core` model keeps container ships only, except `dim_climatetrace_ports`, which places US arrival ports from every voyage. Filtering to container ships when parsing the archive (`climatetrace.vessel_types`) frees about 30 MB once every year is reloaded with `--from-archive` and the table is vacuumed (`VACUUM FULL raw.climatetrace_voyages`, as the owner); a superseded load's rows are deleted, but the table only shrinks on disk after the vacuum. Checked 2026-11-02: placing ports from container voyages alone moves 9 of the 62 ports with container voyages by more than 25 km; together they hold 46 container voyages (about 0.4%), so `assert_no_container_ports_in_other_region` and the coast-region tests would recheck them in the build. The archive keeps every ship type, so other types can be restored with `--from-archive` at no BigQuery cost, for example for the half of the largest transformers (850423) that doesn't move in containers.
+
 If Postgres grows past 750 MB, trim in this order:
 
 1. Restrict `porths` and `statehs` to the configured origins instead of all countries (done).
 2. Retire loads whose HS prefix left the config (`shockt loads retire --apply`), then `VACUUM FULL` the affected tables as the database owner: a `DELETE` frees space for reuse but doesn't shrink the table on disk.
-3. Make the large core facts dbt views instead of tables.
+3. Filter Climate TRACE voyages to container ships when parsing the archive (above; built).
+4. Make the large core facts dbt views instead of tables.
 
 ### Object storage (5 GB)
 
@@ -934,7 +962,9 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 | | The nine configured states fit in storage | **Verified** 2026-10-12 (from the downloaded files, before loading): 369,096 rows across 18 quarters, about 4.6 times the earlier estimate but well within the budget (Section 8) |
 | | The West Coast unlading share for East-bound states is measurable | **Verified** 2026-10-12 (same files): for vessel imports from Asia bound for VA, GA and OH, the share unladen at West Coast ports fell from 13.6% (2022 Q1) to 11.1% (2023 Q3–Q4), rose to 17.6% (2024 Q4) and eased to about 14% in 2026, while the West Coast control states (CA, OR, WA, AZ) held at 91–93%. The 2022–23 fall is the kind of pre-shock movement A3 flags for the Case 2 baseline. |
 | | Every unlading and entry port code is known | **Verified** 2026-10-12: codes missing from Schedule D carry 0.04% of the kept weight (mostly `1107`); `dim_port` adds them from the loaded data |
-| `dim_nodes` (6.2) | Climate TRACE start ports cover the Asian departure lanes | **Verified** 2026-10-12: every Asian and Mexican origin with case vessel tonnage in Census has container voyages to the US with a start port and point (100% of the tonnage). Thin for a few: Thailand (2.5% of the tonnage) has 6 voyages, Pakistan 2, the Philippines 5, the UAE 3. Voyage origin is where the ship loaded, which for transshipped cargo is not where the goods were made |
+| `dim_nodes` (6.2) | Climate TRACE start ports cover the Asian departure lanes | **Verified** 2026-10-12: every Asian and Mexican origin with case vessel tonnage in Census has container voyages to the US with a start port and point (100% of the tonnage). Thin for a few: Thailand (2.5% of the tonnage) has 6 voyages, Pakistan 2, the Philippines 5, the UAE 3. Voyage origin is where the ship loaded, which for transshipped cargo is not where the goods were made. **False for apparel (2026-11-02):** Bangladesh, Cambodia, Jordan and Myanmar have case vessel tonnage and no container voyages to the US, about a fifth of apparel tonnage in 2025 (Section 5.7.1) |
+| Feeder voyages (5.7.1) | Container voyages from the origins with no US voyages to other countries exist in `shipping_voyages` | **Verified** 2026-11-02 for 2024: Bangladesh 1,115, Cambodia 615, Myanmar 348, Jordan 293 |
+| | A feeder voyage's destination port stands for the hub where the origin's US-bound cargo transships | **Unverified.** Voyages are legs of a ship's rotation, not cargo itineraries |
 | | DENUE's establishments in NAICS 33411 (69 loaded) are plausible server assembly sites | **Mostly** (2026-10-12): 29 are in the 251-and-over band, among them Foxconn, Inventec and Pegatron in Ciudad Juárez, Sanmina in Guadalajara and Lenovo in Apodaca. Two look like services rather than plants (Conduent in Mexico City; IBM's sales and services company in El Salto), and Key Tronic in Juárez appears five times |
 | | Every case crossing has a large DENUE plant from which its Mexican leg can start | **Verified** 2026-10-12: every crossing carrying overland servers has a plant in the 251-and-over band; the nearest is within 11 km for the Juárez crossings (67% of server tonnage) and 201 km for Laredo (30%). Interior plants likely feed Laredo, so the leg is a lower bound (Section 6.2) |
 | | A state's population-weighted centre is a reasonable destination point | **Partly** (2026-10-13): where a state has two population centres the centre falls in empty country with no road (Nevada between Las Vegas and Reno, Idaho's wilderness, Washington's Cascades), and openrouteservice found no route to any of the three. Each state is therefore placed at the GeoNames town nearest its centre: 20 km away on average, 80 km at most (Idaho → Boise; Nevada → Pahrump, Washington → North Bend). `assert_destination_state_rules` pins known states. Still a stated limit: the town is not the state's data-centre market (Section 6.2) |
@@ -962,6 +992,8 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 8. **Done:** reference loaders (OurAirports, GeoNames, BTS crossings, concordance, DENUE), `dim_port` placement and `dim_census_air_ports`, and the emission factors (6.1). **Built, not yet loaded:** the T-100 loader (5.8, migration `0014`). **Done:** the node locations and `dim_nodes` (6.2). **Done:** `fct_node_weights_monthly` and `agg_observed_sea_distances_monthly` (6.2, 6.3). **Built:** the structured factor columns and `leg_factors` (6.1), and the four distance generators (6.3); the sea and air seeds are generated, road and rail run against the archive.
 9. **Done (2026-10-12).** A full load into Neon: migrations `0011`–`0013` applied (`0013` drops the leftover `raw.seed_emission_factors`), the six Case 2 HS-6 codes loaded and the HS-4 loads retired, `VACUUM FULL` on the three Census tables to return the retired rows' space, Climate TRACE reloaded for the 42-country origins, the factor workbooks and DENUE loaded, `shockt build`, then a storage check against Section 8.
 10. **Built (2026-10-13), awaiting the migration and reload.** The Census charge and duty fields (Section 5.1): migration `0015`, the `hs` request, `charges_usd` on `fct_imports_monthly`, `fct_import_duties_monthly` and `assert_census_charges_and_duty_reconcile`, checked against a local build of the fixture. Next: apply `0015`, reload `hs` from the API (`shockt ingest census -d hs`) and `shockt build`. Cost per tonne in the engine waits on the team ([Cost Calculator](./cost-calculator.md), Section 3).
+
+11. **Planned.** Feeder voyages (5.7.1): the loader query and its config, the hub-share model, the two-part sea leg in the engine. Before it, reload `climatetrace_voyages` from the archive with the container-only filter (Section 8, built 2026-11-02) and vacuum the table to make room.
 
 ## 11. Testing
 

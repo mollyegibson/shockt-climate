@@ -80,6 +80,21 @@ def supply(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     )
 
 
+def import_values(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
+    """Monthly import value by origin and HS-6, all modes, for the configured origins."""
+    return frame(
+        conn,
+        """
+        select i.month, i.census_cty_code, c.iso3, i.hs6, sum(i.value_usd)::float8 as value_usd
+        from core.fct_imports_monthly as i
+        join core.dim_country as c using (census_cty_code)
+        where i.hs6 = any(%(hs6)s) and c.region <> 'other'
+        group by i.month, i.census_cty_code, c.iso3, i.hs6
+        """,
+        {"hs6": list(hs6)},
+    )
+
+
 def node_weights(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     """Node weights by month, origin, HS-6 and mode, with each node's kind and coast region."""
     return frame(

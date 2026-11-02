@@ -64,8 +64,12 @@ climatetrace:
   table: trace-data-383422.climate_trace.shipping_voyages
   # Origins are the countries in config/origins.yaml, by their ISO3 codes in seed_census_countries;
   # the destination is always the United States.
-  # All ship types on these lanes are loaded (about 70k voyages for 2022 onward); core filters to
-  # container ships ("container" from OceanMind, "cargo.container" from Global Fishing Watch).
+  # The query returns every ship type on these lanes and the archive keeps them all; only the ship
+  # types below are loaded into raw, the container ships that core uses ("container" from OceanMind,
+  # "cargo.container" from Global Fishing Watch). Other types reload with --from-archive.
+  vessel_types:
+    - container
+    - cargo.container
 
 emission_factors:
   # Workbooks loaded by `shockt ingest uk-ghg-factors`, `epa-ghg-hub`, `cbam-default-values` and

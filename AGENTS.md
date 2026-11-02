@@ -123,6 +123,7 @@ When guidance conflicts, higher sources win:
 - [Case 1 Analysis](./docs/plans/case-1-analysis.md): the first Case 1 notebook, engine functions and input files
 - [Case 2 Analysis](./docs/plans/case-2-analysis.md): the Panama and Red Sea notebook, its shock-dating rule and new engine functions
 - [Refrigeration Analysis](./docs/plans/refrigeration-analysis.md): refrigerator component imports under 2025 tariffs
+- [Apparel Analysis](./docs/plans/apparel-analysis.md): apparel and footwear under the 2025 tariffs and the Red Sea diversions, with same-months comparisons
 - [Team discussions](./docs/team-discussions/): meeting notes and talking points, one file per date
 
 # Contributing

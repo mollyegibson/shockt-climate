@@ -125,6 +125,42 @@ def share_changes(
     return share_change(of(baseline), of(window))
 
 
+def months_earlier(window: Window, months: int, name: str) -> Window:
+    """`window` moved `months` earlier, named `name`."""
+
+    def shift(month: date) -> date:
+        index = month.year * 12 + month.month - 1 - months
+        return date(index // 12, index % 12 + 1, 1)
+
+    return Window(name, shift(window.first), shift(window.last))
+
+
+def full_years(window: Window) -> list[Window]:
+    """The calendar years wholly inside `window`, each a window named by its year."""
+    first = window.first.year + (window.first.month > 1)
+    return [
+        Window(str(year), date(year, 1, 1), date(year, 12, 1))
+        for year in range(first, window.last.year + 1)
+        if date(year, 12, 1) <= window.last
+    ]
+
+
+def shares_within(
+    monthly: pl.DataFrame, windows: Sequence[Window], group: str, category: str
+) -> pl.DataFrame:
+    """Each `category`'s share of tonnage within each `group`, per window: for example each
+    mode's share of an origin's tonnes."""
+    totals = (
+        with_window(monthly, windows)
+        .drop_nulls("window")
+        .group_by("window", group, category)
+        .agg(pl.col("weight_t").sum())
+    )
+    return totals.with_columns(
+        (pl.col("weight_t") / pl.col("weight_t").sum().over("window", group)).alias("share")
+    ).sort("window", group, category)
+
+
 @dataclass(frozen=True)
 class LaneContext:
     """Everything the lanes need besides the lane itself."""
@@ -426,6 +462,7 @@ def plot_waterfall(
     labels: Mapping[str, str],
     title: str,
     window_label: str = "window",
+    baseline_label: str = "baseline",
 ) -> None:
     """A waterfall from the baseline mix to the window's, one bar per effect, in kg CO2e per
     tonne."""
@@ -451,7 +488,9 @@ def plot_waterfall(
     ax.bar(len(names) + 1, decomposition.window, color="#8a9a8f")
     ax.set_ylim(0, top * 1.15)
     ax.set_xticks(
-        range(len(names) + 2), ["baseline", *[labels[n] for n in names], window_label], fontsize=8
+        range(len(names) + 2),
+        [baseline_label, *[labels[n] for n in names], window_label],
+        fontsize=8,
     )
     ax.set_ylabel("kg CO2e per tonne delivered")
     ax.set_title(title)

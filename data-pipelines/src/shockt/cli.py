@@ -363,8 +363,8 @@ def ingest_climatetrace_voyages(
     skip_existing: Annotated[
         bool,
         typer.Option(
-            help="Skip years already loaded for the same months. The current year is always "
-            "reloaded."
+            help="Skip years already loaded for the same months, origins and ship types. The "
+            "current year is always reloaded."
         ),
     ] = False,
     from_archive: Annotated[
@@ -400,7 +400,12 @@ def ingest_climatetrace_voyages(
     with connect(settings) as conn:
         done = manifest.succeeded_params(conn, climatetrace.DATASET) if skip_existing else {}
         for year in months.years():
-            if _already_loaded(done.get(str(year)), months.in_year(year), origin_iso3=origins):
+            if _already_loaded(
+                done.get(str(year)),
+                months.in_year(year),
+                origin_iso3=origins,
+                vessel_types=config.climatetrace.vessel_types,
+            ):
                 typer.echo(f"{climatetrace.DATASET} {year}: skipped (already loaded)")
                 continue
             started = time.monotonic()
