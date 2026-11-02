@@ -141,12 +141,16 @@ def test_hs2_chapters_come_from_the_case_prefixes() -> None:
 def test_overland_range_percentiles_must_be_ordered_within_zero_and_one() -> None:
     with pytest.raises(ValidationError, match="range_percentiles"):
         OverlandWeightConfig(
-            min_air_vessel_value_usd=1, range_percentiles=[0.95, 0.05], max_non_crossing_share=0.05
+            min_air_vessel_value_usd=1,
+            range_percentiles=[0.95, 0.05],
+            min_mexico_overland_value_usd=1,
+            max_non_crossing_share=0.05,
         )
     with pytest.raises(ValidationError, match="two values"):
         OverlandWeightConfig(
             min_air_vessel_value_usd=1,
             range_percentiles=[0.05, 0.5, 0.95],
+            min_mexico_overland_value_usd=1,
             max_non_crossing_share=0.05,
         )
 

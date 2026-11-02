@@ -313,6 +313,8 @@ class OverlandWeightConfig(ConfigModel):
     """An origin's air and vessel value of a code needed for its own kg per dollar to be used."""
     range_percentiles: list[float]
     """Value-weighted percentiles of kg per dollar across origins that bound an estimate's range."""
+    min_mexico_overland_value_usd: float = Field(ge=0)
+    """A code's overland value from Mexico over the loaded months at which it must have a range."""
     max_non_crossing_share: float = Field(ge=0, le=1)
     """Largest share of a code's Mexican overland value allowed to enter away from a US–Mexico
     crossing, which the Mexico overland leg leaves out, before a warning."""
