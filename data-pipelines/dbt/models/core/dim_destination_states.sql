@@ -3,9 +3,10 @@ US states of destination with case imports, each placed at the GeoNames town nea
 population-weighted centre of its cities. The centre alone can land far from any road where a
 state has two population centres (Nevada's between Las Vegas and Reno), so the town keeps every
 state on the road and rail networks. States GeoNames has no cities for (territories under their own
-country code) are left out.
+country code) are left out. `states` is materialized so it is computed once: the planner underestimates
+the GeoNames rows and would otherwise rescan the imports table for every city.
 */
-with states as (
+with states as materialized (
     select distinct state
     from {{ ref('fct_imports_state_monthly') }}
     where state <> 'XX'
