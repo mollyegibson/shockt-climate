@@ -136,6 +136,10 @@ uv run shockt dbt build -s fct_imports_monthly    # any dbt command, e.g. one mo
 uv run shockt dbt test                            # tests only
 ```
 
+### Storage on the free tier
+
+The Neon project has a 1024 MB storage limit. dbt rebuilds `core` tables by creating a full temporary copy of each one, so the database needs roughly 150–200 MB of free space during `dbt build`. When a large ingest pushes the database close to the limit, truncate raw tables that no active notebook reads (`TRUNCATE raw.<table>; VACUUM FULL raw.<table>;`). The table schemas stay, and the data reloads from its source whenever it's needed again. Check size with `SELECT pg_size_pretty(pg_database_size(current_database()))`.
+
 Seeds (reference CSVs) live in `dbt/seeds/` and load into `raw.seed_*`. **None is edited by hand**: each is written by a `shockt ref` command from config or an archived source (see `dbt/seeds/README.md`). Rules applied to them, such as coast and country regions, are dbt macros with tests.
 
 ```sh
