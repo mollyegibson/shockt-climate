@@ -28,8 +28,7 @@ overland_weight:
     - 0.05
     - 0.95
   # A code needs a weight range only when its overland imports from Mexico reach this value over
-  # the loaded months; below it, the range collapses to the central estimate. Seats of bamboo and
-  # cane (940152, 940159) had $10,600 and $237,000 on 2026-11-02, the next smallest $4.0M.
+  # the loaded months; below it, the range collapses to the central estimate.
   min_mexico_overland_value_usd: 1000000
   # Mexican overland value entering away from a US-Mexico crossing (through Canada, or recorded at
   # airports) is left out of the Mexico overland leg; warn when it passes this share of a code's
