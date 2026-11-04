@@ -108,3 +108,45 @@ def test_a_lane_without_plants_leaves_out_the_mexican_leg_and_says_so() -> None:
 
     assert lane.missing_legs == ("plant → crossing",)
     assert lane.kg_co2e_per_t == pytest.approx(500.0 * 0.16)
+
+
+def test_vessel_lane_through_a_hub_adds_the_feeder_leg_first() -> None:
+    inputs = LaneInputs(
+        weights={
+            "departure_port": {"sin": 3.0, "cmb": 1.0},
+            "arrival_seaport": {"ny": 1.0},
+            "destination_state": {"ny_state": 1.0},
+        },
+        distances={
+            "sea": {("sin", "ny"): 18_000.0, ("cmb", "ny"): 16_000.0},
+            "road": {("ny", "ny_state"): 100.0},
+        },
+        factors=FACTORS,
+        feeder_pairs={("ctg", "sin"): 3.0, ("ctg", "cmb"): 1.0, ("ctg", "pkg"): 0.5},
+        feeder_km={("ctg", "sin"): 2_900.0, ("ctg", "cmb"): 2_500.0},
+    )
+
+    lane = lane_legs("vessel", inputs)
+
+    assert [leg.name for leg in lane.legs] == ["port → hub", "port → seaport", "seaport → state"]
+    assert lane.legs[0].km == pytest.approx((3 * 2_900.0 + 1 * 2_500.0) / 4)
+    assert lane.legs[0].covered_share == pytest.approx(4 / 4.5)
+    assert lane.legs[1].km == pytest.approx((3 * 18_000.0 + 1 * 16_000.0) / 4)
+    assert lane.kg_co2e_per_t == pytest.approx((2_800.0 + 17_500.0) * 0.02 + 100.0 * 0.16)
+
+
+def test_vessel_lane_without_feeder_pairs_has_no_feeder_leg() -> None:
+    inputs = LaneInputs(
+        weights={
+            "departure_port": {"kao": 1.0},
+            "arrival_seaport": {"la": 1.0},
+            "destination_state": {"ca": 1.0},
+        },
+        distances={"sea": {("kao", "la"): 11_000.0}, "road": {("la", "ca"): 50.0}},
+        factors=FACTORS,
+    )
+
+    assert [leg.name for leg in lane_legs("vessel", inputs).legs] == [
+        "port → seaport",
+        "seaport → state",
+    ]

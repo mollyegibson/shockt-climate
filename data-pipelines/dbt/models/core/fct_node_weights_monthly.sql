@@ -4,8 +4,10 @@ make a lane's distance an average over the places it actually uses.
 
 - Departure ports: the origin's case vessel tonnage to each US coast region, spread across its
   start ports by their container voyages to that region over the loaded months; an origin with no
-  voyages to the region uses its voyages to every region (`weight_basis` says which). Census
-  doesn't record the foreign port, so this is the only basis for the split.
+  voyages to the region uses its voyages to every region; an origin with no voyages to the US at
+  all (a feeder origin) uses the hub ports its container ships sail to, by their share of its
+  feeder voyages (`weight_basis` says which). Census doesn't record the foreign port, so this is
+  the only basis for the split.
 - Departure airports: the origin's case air tonnage, spread across its airports by their share of
   its freight to the US in T-100 over the loaded months.
 - Arrival seaports and air gateways: the port's case vessel or air tonnage, as Census reports it.
@@ -59,6 +61,17 @@ country_shares as (
     group by iso3, start_port_id
 ),
 
+hub_shares as (
+    select
+        hubs.origin_iso3 as iso3,
+        hubs.hub_port_id as start_port_id,
+        sum(hubs.n_voyages)::numeric / sum(sum(hubs.n_voyages)) over (partition by hubs.origin_iso3) as share
+    from {{ ref('agg_feeder_hub_shares_monthly') }} as hubs
+    inner join {{ ref('dim_departure_ports') }} as departure on departure.start_port_id = hubs.hub_port_id
+    where hubs.origin_iso3 not in (select iso3 from voyages)
+    group by hubs.origin_iso3, hubs.hub_port_id
+),
+
 vessel_by_region as (
     select port.month, port.census_cty_code, countries.iso3, port.hs6, port.coast_region, sum(port.weight_t) as weight_t
     from {{ ref('fct_imports_port_monthly') }} as port
@@ -70,21 +83,27 @@ vessel_by_region as (
 departure_ports as (
     select
         tonnage.month,
-        'departure_port:' || coalesce(by_region.start_port_id, by_country.start_port_id) as node_id,
+        'departure_port:' || coalesce(by_region.start_port_id, by_country.start_port_id, by_hub.start_port_id) as node_id,
         tonnage.census_cty_code,
         tonnage.hs6,
         'vessel' as mode,
         tonnage.coast_region as lane_coast_region,
-        tonnage.weight_t * coalesce(by_region.share, by_country.share) as weight_t,
-        tonnage.weight_t * coalesce(by_region.share, by_country.share) as weight_t_low,
-        tonnage.weight_t * coalesce(by_region.share, by_country.share) as weight_t_high,
-        case when by_region.share is not null then 'voyage_share_region' else 'voyage_share_country' end as weight_basis
+        tonnage.weight_t * coalesce(by_region.share, by_country.share, by_hub.share) as weight_t,
+        tonnage.weight_t * coalesce(by_region.share, by_country.share, by_hub.share) as weight_t_low,
+        tonnage.weight_t * coalesce(by_region.share, by_country.share, by_hub.share) as weight_t_high,
+        case
+            when by_region.share is not null then 'voyage_share_region'
+            when by_country.share is not null then 'voyage_share_country'
+            else 'feeder_hub_share'
+        end as weight_basis
     from vessel_by_region as tonnage
     left join region_shares as by_region
         on by_region.iso3 = tonnage.iso3 and by_region.coast_region = tonnage.coast_region
     left join country_shares as by_country
         on by_country.iso3 = tonnage.iso3 and by_region.start_port_id is null
-    where coalesce(by_region.share, by_country.share) is not null
+    left join hub_shares as by_hub
+        on by_hub.iso3 = tonnage.iso3 and by_region.start_port_id is null and by_country.start_port_id is null
+    where coalesce(by_region.share, by_country.share, by_hub.share) is not null
 ),
 
 airport_shares as (

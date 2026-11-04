@@ -322,6 +322,9 @@ erDiagram
     float lon
     float lat
     bigint container_voyages
+    bigint feeder_voyages
+    bool is_us_departure
+    bool is_feeder_hub
   }
   dim_departure_airports {
     text iata_code PK
@@ -385,7 +388,7 @@ erDiagram
   dim_destination_states ||..|| dim_nodes : "destination_state"
 ```
 
-- `dim_departure_ports`: Climate TRACE start ports in the origin countries that container ships sailed from to the US, each at the median start point of its voyages.
+- `dim_departure_ports`: Ports the main sea leg to the US starts from: Climate TRACE start ports in the origin countries that container ships sailed from to the US (`is_us_departure`), at the median start point of those voyages, and the hub ports the feeder origins' container ships sail to (`is_feeder_hub`), at the median end point of the feeder voyages.
 - `dim_departure_airports`: Airports in the origin countries that flew freight to the US in BTS T-100, placed by IATA code and country with OurAirports.
 - `dim_mexico_plants`: DENUE establishments in the case industries whose employee band starts at or above `mexico_sites.min_employees`, one per industry and location.
 - `map_crossing_plant`: The nearest large plant, by great-circle distance, for each border crossing and HS-6 code with overland imports, among codes whose industries DENUE covers.

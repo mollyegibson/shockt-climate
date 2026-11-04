@@ -2,7 +2,9 @@
 US; its legs run from where the freight leaves to the state it's bound for:
 
 - air: departure airport → US air gateway (air), gateway → destination state (truck)
-- vessel: departure port → US seaport (ocean), seaport → destination state (truck, or rail)
+- vessel: departure port → US seaport (ocean), seaport → destination state (truck, or rail); for
+  an origin whose cargo transships at a hub, first its own port → the hub (ocean), and the hub is
+  the departure port
 - truck: Mexican plant → border crossing (truck), crossing → destination state (truck)
 - rail: Mexican plant → border crossing (truck), crossing → destination state (rail)
 
@@ -47,6 +49,10 @@ class LaneInputs:
     """Arrival seaport → observed km from the origin's voyages."""
     crossing_plants: Mapping[str, str] = field(default_factory=dict)
     """Border crossing node → the plant node its Mexican leg starts at."""
+    feeder_pairs: Mapping[tuple[str, str], float] = field(default_factory=dict)
+    """(origin port, hub port) → weight (voyages), for an origin whose cargo transships at a hub."""
+    feeder_km: Mapping[tuple[str, str], float] = field(default_factory=dict)
+    """(origin port, hub port) → observed km of the feeder voyages."""
 
 
 @dataclass(frozen=True)
@@ -122,6 +128,18 @@ def lane_legs(mode: LaneMode, inputs: LaneInputs, inland: InlandMode = "truck") 
             )
         )
     elif mode == "vessel":
+        if inputs.feeder_pairs:
+            feeder = pair_weighted_distance(inputs.feeder_km, inputs.feeder_pairs)
+            legs.append(
+                LegResult(
+                    "port → hub",
+                    "ocean",
+                    feeder.km,
+                    inputs.factors["ocean"],
+                    feeder.covered_share,
+                    1.0,
+                )
+            )
         sea = sea_leg_distance(
             inputs.observed_sea,
             inputs.distances["sea"],

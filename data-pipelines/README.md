@@ -386,6 +386,8 @@ erDiagram
     text iso3
     float lat
     float lon
+    bool is_us_departure
+    bool is_feeder_hub
   }
   dim_departure_airports {
     text iata_code PK

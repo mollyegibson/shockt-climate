@@ -401,8 +401,10 @@ models:
 
   - name: dim_departure_ports
     description: >
-      Climate TRACE start ports in the origin countries that container ships sailed from to the US,
-      each at the median start point of its voyages.
+      Ports the main sea leg to the US starts from: Climate TRACE start ports in the origin
+      countries that container ships sailed from to the US (`is_us_departure`), at the median start
+      point of those voyages, and the hub ports the feeder origins' container ships sail to
+      (`is_feeder_hub`), at the median end point of the feeder voyages.
     columns:
       - name: start_port_id
         data_tests: [unique, not_null]
@@ -504,7 +506,7 @@ models:
         data_tests:
           - accepted_values:
               arguments:
-                values: ["voyage_share_region", "voyage_share_country", "t100_share", "reported", "estimated_value_ratio", "estimated_own_ratio", "estimated_all_origins_ratio"]
+                values: ["voyage_share_region", "voyage_share_country", "feeder_hub_share", "t100_share", "reported", "estimated_value_ratio", "estimated_own_ratio", "estimated_all_origins_ratio"]
 
   - name: agg_observed_sea_distances_monthly
     description: >

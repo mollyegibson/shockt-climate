@@ -1,4 +1,4 @@
--- Warns when case vessel tonnage from origins with no departure port (no container voyage from them to the US) passes `departure_nodes.max_unplaced_share.vessel`; lists those origins. Their sea legs have no start, so they are left out of the weights.
+-- Warns when case vessel tonnage from origins with no departure port (no container voyage from them to the US, and no feeder voyages to a hub) passes `departure_nodes.max_unplaced_share.vessel`; lists those origins. Their sea legs have no start, so they are left out of the weights.
 {{ config(severity='warn') }}
 
 with vessel as (
@@ -12,7 +12,8 @@ with vessel as (
 unplaced as (
     select iso3, weight_t, weight_t / (select sum(weight_t) from vessel) as share_of_vessel
     from vessel
-    where iso3 not in (select iso3 from {{ ref('dim_departure_ports') }})
+    where iso3 not in (select iso3 from {{ ref('dim_departure_ports') }} where is_us_departure)
+        and iso3 not in (select origin_iso3 from {{ ref('agg_feeder_hub_shares_monthly') }})
 )
 
 select *
