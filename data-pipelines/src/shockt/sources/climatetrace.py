@@ -61,12 +61,13 @@ SOURCE_COLUMNS = (
     "original_inventory_sector",
 )
 COMPUTED_COLUMNS = (
-    ("start_lon", "ST_X(ST_STARTPOINT(location))"),
-    ("start_lat", "ST_Y(ST_STARTPOINT(location))"),
-    ("end_lon", "ST_X(ST_ENDPOINT(location))"),
-    ("end_lat", "ST_Y(ST_ENDPOINT(location))"),
+    ("start_lon", "SAFE.ST_X(SAFE.ST_STARTPOINT(location))"),
+    ("start_lat", "SAFE.ST_Y(SAFE.ST_STARTPOINT(location))"),
+    ("end_lon", "SAFE.ST_X(SAFE.ST_ENDPOINT(location))"),
+    ("end_lat", "SAFE.ST_Y(SAFE.ST_ENDPOINT(location))"),
 )
-"""Port coordinates from `location`, a two-point line from the start port to the end port."""
+"""Port coordinates from `location`, a two-point line from the start port to the end port. Some
+voyages have a single point instead (60 from Jordan in 2024); their coordinates are null."""
 RESULT_COLUMNS = (*SOURCE_COLUMNS, *(name for name, _ in COMPUTED_COLUMNS))
 _TARGET_COLUMNS = ("load_id", *(c.lower() for c in RESULT_COLUMNS))
 

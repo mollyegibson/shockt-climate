@@ -105,7 +105,7 @@ def test_year_query_passes_values_as_parameters() -> None:
     assert "@start" in query.sql and "@origins" in query.sql
     assert "TWN" not in query.sql and "2024" not in query.sql
     assert dict((n, v) for n, _, v in query.params)["origins"] == ["TWN", "MEX"]
-    assert "ST_X(ST_ENDPOINT(location)) AS end_lon" in query.sql
+    assert "SAFE.ST_X(SAFE.ST_ENDPOINT(location)) AS end_lon" in query.sql
 
 
 def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
