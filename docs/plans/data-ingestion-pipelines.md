@@ -565,7 +565,7 @@ CREATE TABLE raw.climatetrace_voyages (
 );
 ```
 
-#### 5.7.1 Feeder voyages (planned)
+#### 5.7.1 Feeder voyages (loader built 2026-11-04; hub model and engine leg planned)
 
 **Why.** Departure ports come from container voyages that end in the US, so an origin whose US-bound cargo transships at a hub has no departure ports and no computable sea lane. For apparel this leaves out Bangladesh, Cambodia, Jordan and Myanmar, about a fifth of the tonnage in the 2025 response window ([apparel plan](./apparel-analysis.md), Section 4).
 
@@ -580,7 +580,7 @@ CREATE TABLE raw.climatetrace_voyages (
 
 **Design.**
 
-- **Load:** a second query, `climatetrace_feeder_voyages`, for the origins in a new `climatetrace.feeder_origins` list in `config/sources.yaml`, container ships only, ending outside the origin country. The origins are a declared choice: those with case vessel tonnage and no container voyages to the US, which a dbt test reports.
+- **Load (built):** `shockt ingest climatetrace-feeder-voyages`, the same loader as the US voyages with a second voyage set: voyages from the origins in `climatetrace.feeder_origins` (`config/sources.yaml`: Bangladesh, Cambodia, Jordan, Myanmar) whose end country differs from their start country (`other5 <> other4`), archived whole and parsed to the container types in `climatetrace.vessel_types`, into `raw.climatetrace_feeder_voyages` (migration `0022`, the same columns as `raw.climatetrace_voyages`). The origins are a declared choice: those `warn_origins_without_departure_ports` lists with material tonnage. The dry run (2026-11-04) scans 38.1 GB for 2022–2026 (5.6–8.8 GB a year), under 4% of the free monthly 1 TB.
 - **Size:** about 2,400 voyages a year for the four origins, about 11,000 rows for 2022 to 2026 and about 8 MB at the current table's 740 bytes a row. Adding Sri Lanka and Pakistan raises it to about 22 MB.
 - **Hub shares:** a `core` model of each feeder origin's voyages by destination port and month; the share of voyages to each hub port weights the feeder leg.
 - **Hub to the US:** observed voyages from the hub's country where loaded (Singapore 101 and Sri Lanka 206 container voyages to the US in 2024; none from Malaysia or Thailand), `searoute` otherwise.
@@ -993,7 +993,7 @@ Every planned item rests on assumptions about the data. Each is marked **verifie
 9. **Done (2026-10-12).** A full load into Neon: migrations `0011`–`0013` applied (`0013` drops the leftover `raw.seed_emission_factors`), the six Case 2 HS-6 codes loaded and the HS-4 loads retired, `VACUUM FULL` on the three Census tables to return the retired rows' space, Climate TRACE reloaded for the 42-country origins, the factor workbooks and DENUE loaded, `shockt build`, then a storage check against Section 8.
 10. **Built (2026-10-13), awaiting the migration and reload.** The Census charge and duty fields (Section 5.1): migration `0015`, the `hs` request, `charges_usd` on `fct_imports_monthly`, `fct_import_duties_monthly` and `assert_census_charges_and_duty_reconcile`, checked against a local build of the fixture. Next: apply `0015`, reload `hs` from the API (`shockt ingest census -d hs`) and `shockt build`. Cost per tonne in the engine waits on the team ([Cost Calculator](./cost-calculator.md), Section 3).
 
-11. **Planned.** Feeder voyages (5.7.1): the loader query and its config, the hub-share model, the two-part sea leg in the engine. Before it, reload `climatetrace_voyages` from the archive with the container-only filter (Section 8, built 2026-11-02) and vacuum the table to make room.
+11. **In progress.** Feeder voyages (5.7.1): the loader and migration `0022` are built; next, apply `0022` and load (`shockt ingest climatetrace-feeder-voyages`), then the hub-share model and the two-part sea leg in the engine. Before it, reload `climatetrace_voyages` from the archive with the container-only filter (Section 8, built 2026-11-02) and vacuum the table to make room.
 
 ## 11. Testing
 

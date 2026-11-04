@@ -353,29 +353,69 @@ def ingest_bts_t100(
             )
 
 
+VOYAGE_DRY_RUN_OPTION = typer.Option(help="Print the bytes each year would scan; load nothing.")
+VOYAGE_SKIP_OPTION = typer.Option(
+    help="Skip years already loaded for the same months, origins and ship types. The current year "
+    "is always reloaded."
+)
+VOYAGE_ARCHIVE_OPTION = typer.Option(help="Re-parse archived Parquet instead of querying BigQuery.")
+
+
 @ingest_app.command("climatetrace-voyages")
 def ingest_climatetrace_voyages(
     start: Annotated[str | None, FROM_MONTH_OPTION] = None,
     end: Annotated[str | None, TO_MONTH_OPTION] = None,
-    dry_run: Annotated[
-        bool, typer.Option(help="Print the bytes each year would scan; load nothing.")
-    ] = False,
-    skip_existing: Annotated[
-        bool,
-        typer.Option(
-            help="Skip years already loaded for the same months, origins and ship types. The "
-            "current year is always reloaded."
-        ),
-    ] = False,
-    from_archive: Annotated[
-        bool, typer.Option(help="Re-parse archived Parquet instead of querying BigQuery.")
-    ] = False,
+    dry_run: Annotated[bool, VOYAGE_DRY_RUN_OPTION] = False,
+    skip_existing: Annotated[bool, VOYAGE_SKIP_OPTION] = False,
+    from_archive: Annotated[bool, VOYAGE_ARCHIVE_OPTION] = False,
 ) -> None:
     """Load Climate TRACE ship voyages on the configured lanes from BigQuery, one year at a time."""
+    _ingest_voyages(
+        climatetrace.US_VOYAGES,
+        origin_iso3(origins_config()),
+        start,
+        end,
+        dry_run=dry_run,
+        skip_existing=skip_existing,
+        from_archive=from_archive,
+    )
+
+
+@ingest_app.command("climatetrace-feeder-voyages")
+def ingest_climatetrace_feeder_voyages(
+    start: Annotated[str | None, FROM_MONTH_OPTION] = None,
+    end: Annotated[str | None, TO_MONTH_OPTION] = None,
+    dry_run: Annotated[bool, VOYAGE_DRY_RUN_OPTION] = False,
+    skip_existing: Annotated[bool, VOYAGE_SKIP_OPTION] = False,
+    from_archive: Annotated[bool, VOYAGE_ARCHIVE_OPTION] = False,
+) -> None:
+    """Load Climate TRACE voyages from the feeder origins (`climatetrace.feeder_origins`) to other
+    countries, one year at a time."""
+    _ingest_voyages(
+        climatetrace.FEEDER_VOYAGES,
+        sources_config().climatetrace.feeder_origins,
+        start,
+        end,
+        dry_run=dry_run,
+        skip_existing=skip_existing,
+        from_archive=from_archive,
+    )
+
+
+def _ingest_voyages(
+    voyages: climatetrace.VoyageSet,
+    origins: list[str],
+    start: str | None,
+    end: str | None,
+    *,
+    dry_run: bool,
+    skip_existing: bool,
+    from_archive: bool,
+) -> None:
     settings = get_settings()
-    config = sources_config()
+    config = sources_config().climatetrace
+    dataset = voyages.target.dataset
     months = _month_range(start, end)
-    origins = origin_iso3(origins_config())
     runner: climatetrace.BigQueryRunner | None = None
     if not from_archive:
         if settings.gcp_project_id is None:
@@ -387,9 +427,9 @@ def ingest_climatetrace_voyages(
             raise typer.BadParameter("--dry-run queries BigQuery; drop --from-archive")
         total = 0
         for year in months.years():
-            estimate = climatetrace.estimate_bytes(runner, config.climatetrace, origins, year)
+            estimate = climatetrace.estimate_bytes(runner, voyages, config, origins, year)
             total += estimate
-            typer.echo(f"{climatetrace.DATASET} {year}: would scan {estimate / 1e9:.1f} GB")
+            typer.echo(f"{dataset} {year}: would scan {estimate / 1e9:.1f} GB")
         typer.echo(
             f"total {total / 1e9:.1f} GB; cap per query (BQ_MAX_BYTES) "
             f"{settings.bq_max_bytes / 1e9:.0f} GB"
@@ -398,15 +438,15 @@ def ingest_climatetrace_voyages(
 
     archive = NeonArchive(settings)
     with connect(settings) as conn:
-        done = manifest.succeeded_params(conn, climatetrace.DATASET) if skip_existing else {}
+        done = manifest.succeeded_params(conn, dataset) if skip_existing else {}
         for year in months.years():
             if _already_loaded(
                 done.get(str(year)),
                 months.in_year(year),
                 origin_iso3=origins,
-                vessel_types=config.climatetrace.vessel_types,
+                vessel_types=config.vessel_types,
             ):
-                typer.echo(f"{climatetrace.DATASET} {year}: skipped (already loaded)")
+                typer.echo(f"{dataset} {year}: skipped (already loaded)")
                 continue
             started = time.monotonic()
             fetch = (
@@ -415,18 +455,19 @@ def ingest_climatetrace_voyages(
                 else partial(
                     climatetrace.fetch_year,
                     runner,
-                    config.climatetrace,
+                    voyages,
+                    config,
                     origins,
                     year,
                     settings.bq_max_bytes,
                 )
             )
             result = climatetrace.load_year(
-                conn, archive, config.climatetrace, origins, year, months.in_year(year), fetch
+                conn, archive, voyages, config, origins, year, months.in_year(year), fetch
             )
             note = " (replaced earlier load)" if result.superseded_load_id else ""
             typer.echo(
-                f"{climatetrace.DATASET} {year}: {result.row_count:,} voyages "
+                f"{dataset} {year}: {result.row_count:,} voyages "
                 f"in {time.monotonic() - started:.1f}s{note}"
             )
 

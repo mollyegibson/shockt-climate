@@ -11,9 +11,10 @@ import pytest
 from shockt.config import ClimateTraceConfig
 from shockt.months import MonthRange
 from shockt.sources.climatetrace import (
+    FEEDER_VOYAGES,
     METADATA_KEY,
     RESULT_COLUMNS,
-    TARGET,
+    US_VOYAGES,
     ClimateTraceError,
     archive_key,
     fetch_year,
@@ -27,7 +28,9 @@ YEAR_2024 = MonthRange("2024-01", "2024-12")
 ORIGINS = ["TWN", "MEX"]
 
 CONFIG = ClimateTraceConfig(
-    table="project.dataset.shipping_voyages", vessel_types=["container", "cargo.container"]
+    table="project.dataset.shipping_voyages",
+    vessel_types=["container", "cargo.container"],
+    feeder_origins=["BGD"],
 )
 TYPES = CONFIG.vessel_types
 
@@ -93,11 +96,11 @@ class FakeRunner:
 
 
 def parquet(rows: list[dict[str, object]], year: int) -> bytes:
-    return fetch_year(FakeRunner(10**9, rows), CONFIG, ORIGINS, year, max_bytes=10**10)
+    return fetch_year(FakeRunner(10**9, rows), US_VOYAGES, CONFIG, ORIGINS, year, max_bytes=10**10)
 
 
 def test_year_query_passes_values_as_parameters() -> None:
-    query = year_query(CONFIG, ORIGINS, 2024)
+    query = year_query(US_VOYAGES, CONFIG, ORIGINS, 2024)
 
     assert "@start" in query.sql and "@origins" in query.sql
     assert "TWN" not in query.sql and "2024" not in query.sql
@@ -109,7 +112,7 @@ def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
     runner = FakeRunner(estimate=200 * 10**9, rows=[voyage()])
 
     with pytest.raises(ClimateTraceError, match="200.0 GB"):
-        fetch_year(runner, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
+        fetch_year(runner, US_VOYAGES, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
 
     assert runner.runs == []
 
@@ -117,7 +120,7 @@ def test_fetch_year_refuses_a_query_over_the_cap_without_running_it() -> None:
 def test_fetch_year_runs_with_the_cap_and_records_metadata() -> None:
     runner = FakeRunner(estimate=6 * 10**9, rows=[voyage()])
 
-    body = fetch_year(runner, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
+    body = fetch_year(runner, US_VOYAGES, CONFIG, ORIGINS, 2024, max_bytes=100 * 10**9)
 
     assert runner.runs == [100 * 10**9]
     metadata = json.loads(pq.read_table(io.BytesIO(body)).schema.metadata[METADATA_KEY])
@@ -131,14 +134,14 @@ def test_parse_year_maps_columns_and_drops_duplicate_voyages() -> None:
 
     assert parsed.rows_received == 2
     assert len(parsed.rows) == 1
-    row = dict(zip(TARGET.columns[1:], parsed.rows[0], strict=True))
+    row = dict(zip(US_VOYAGES.target.columns[1:], parsed.rows[0], strict=True))
     assert row["activity"] == 6268.439
     assert row["co2_emissions_factor"] == 0.846
     assert row["other3"] == "Port of Long Beach,CA"
     assert parsed.source_version == "release v5_11_0"
     assert parsed.bytes_processed == 10**9
     assert row["end_lon"] == -118.21
-    assert len(TARGET.columns) == len(RESULT_COLUMNS) + 1
+    assert len(US_VOYAGES.target.columns) == len(RESULT_COLUMNS) + 1
 
 
 def test_parse_year_rejects_a_voyage_from_another_year() -> None:
@@ -158,9 +161,11 @@ def test_load_year_records_bytes_processed_in_the_manifest(
 ) -> None:
     body = parquet([voyage(), voyage(asset_identifier="om-imo-1")], 2024)
 
-    result = load_year(conn, memory_archive, CONFIG, ORIGINS, 2024, YEAR_2024, lambda: body)
+    result = load_year(
+        conn, memory_archive, US_VOYAGES, CONFIG, ORIGINS, 2024, YEAR_2024, lambda: body
+    )
 
-    assert memory_archive.objects[archive_key(2024)] == body
+    assert memory_archive.objects[archive_key(US_VOYAGES, 2024)] == body
     assert result.row_count == 2
     manifest = conn.execute(
         "SELECT partition_key, source_version, bytes_processed FROM raw.load_manifest "
@@ -196,7 +201,14 @@ def test_load_year_records_the_months_loaded(
     body = parquet([voyage()], 2024)
 
     result = load_year(
-        conn, memory_archive, CONFIG, ORIGINS, 2024, MonthRange("2024-01", "2024-06"), lambda: body
+        conn,
+        memory_archive,
+        US_VOYAGES,
+        CONFIG,
+        ORIGINS,
+        2024,
+        MonthRange("2024-01", "2024-06"),
+        lambda: body,
     )
 
     params = conn.execute(
@@ -215,6 +227,7 @@ def test_load_year_rejects_months_outside_the_year(
         load_year(
             conn,
             memory_archive,
+            US_VOYAGES,
             CONFIG,
             ORIGINS,
             2024,
@@ -240,3 +253,33 @@ def test_parse_year_keeps_only_the_configured_ship_types() -> None:
         "container",
         "cargo.container",
     ]
+
+
+def test_feeder_year_query_keeps_voyages_leaving_the_start_country() -> None:
+    query = year_query(FEEDER_VOYAGES, CONFIG, ["BGD"], 2024)
+
+    assert "other5 <> other4" in query.sql
+    assert "@destination" not in query.sql
+    assert "destination" not in dict((n, v) for n, _, v in query.params)
+
+
+def test_load_year_writes_feeder_voyages_to_their_own_table_and_archive_key(
+    conn: psycopg.Connection, memory_archive: MemoryArchive
+) -> None:
+    rows = [voyage(other4="BGD", other5="SGP", other2="Chittagong", other3="Singapore")]
+    body = fetch_year(FakeRunner(10**9, rows), FEEDER_VOYAGES, CONFIG, ["BGD"], 2024, 10**10)
+
+    result = load_year(
+        conn, memory_archive, FEEDER_VOYAGES, CONFIG, ["BGD"], 2024, YEAR_2024, lambda: body
+    )
+
+    assert archive_key(FEEDER_VOYAGES, 2024) in memory_archive.objects
+    assert archive_key(FEEDER_VOYAGES, 2024) != archive_key(US_VOYAGES, 2024)
+    feeder = conn.execute("SELECT other4, other5 FROM raw.climatetrace_feeder_voyages").fetchall()
+    assert feeder == [("BGD", "SGP")]
+    us = conn.execute("SELECT count(*) FROM raw.climatetrace_voyages").fetchone()
+    assert us == (0,)
+    dataset = conn.execute(
+        "SELECT dataset FROM raw.load_manifest WHERE load_id = %s", (result.load_id,)
+    ).fetchone()
+    assert dataset == ("climatetrace_feeder_voyages",)

@@ -1,4 +1,6 @@
-"""Climate TRACE ship voyages, queried from the public BigQuery dataset.
+"""Climate TRACE ship voyages, queried from the public BigQuery dataset, as two datasets: the
+origins' voyages to the United States, and the feeder origins' voyages to other countries (the
+first leg of cargo that transships at a hub before sailing to the US).
 
 One partition is one calendar year of voyage start dates, matching the table's partitioning.
 The whole year is queried and archived, every ship type included, since a year costs the same to
@@ -28,9 +30,8 @@ from shockt.loading import ParsedSource, Target, load_partition
 from shockt.manifest import LoadResult
 from shockt.months import MonthRange
 
-DATASET = "climatetrace_voyages"
 DESTINATION_ISO3 = "USA"
-"""The product covers US imports, so every voyage loaded ends at a US port."""
+"""The product covers US imports, so every voyage to the United States ends at a US port."""
 METADATA_KEY = b"shockt"
 
 SOURCE_COLUMNS = (
@@ -67,10 +68,24 @@ COMPUTED_COLUMNS = (
 )
 """Port coordinates from `location`, a two-point line from the start port to the end port."""
 RESULT_COLUMNS = (*SOURCE_COLUMNS, *(name for name, _ in COMPUTED_COLUMNS))
-TARGET = Target(
-    dataset=DATASET,
-    table="climatetrace_voyages",
-    columns=("load_id", *(c.lower() for c in RESULT_COLUMNS)),
+_TARGET_COLUMNS = ("load_id", *(c.lower() for c in RESULT_COLUMNS))
+
+
+@dataclass(frozen=True)
+class VoyageSet:
+    """One dataset of voyages: its raw table, and whether its voyages end in the United States or
+    in any country other than their start port's."""
+
+    target: Target
+    to_united_states: bool
+
+
+US_VOYAGES = VoyageSet(
+    Target("climatetrace_voyages", "climatetrace_voyages", _TARGET_COLUMNS), to_united_states=True
+)
+FEEDER_VOYAGES = VoyageSet(
+    Target("climatetrace_feeder_voyages", "climatetrace_feeder_voyages", _TARGET_COLUMNS),
+    to_united_states=False,
 )
 
 
@@ -104,44 +119,54 @@ class YearQuery:
     """(name, BigQuery type, value); array parameters use type `ARRAY<STRING>`."""
 
 
-def year_query(config: ClimateTraceConfig, origins: Sequence[str], year: int) -> YearQuery:
-    """Voyages starting in `year` from an origin country (ISO3) to the United States."""
+def year_query(
+    voyages: VoyageSet, config: ClimateTraceConfig, origins: Sequence[str], year: int
+) -> YearQuery:
+    """Voyages starting in `year` from an origin country (ISO3) to the United States, or to any
+    other country for the feeder set."""
     columns = ",\n  ".join(
         (*SOURCE_COLUMNS, *(f"{expression} AS {name}" for name, expression in COMPUTED_COLUMNS))
     )
+    params: tuple[tuple[str, str, object], ...] = (
+        ("start", "TIMESTAMP", datetime(year, 1, 1, tzinfo=UTC)),
+        ("end", "TIMESTAMP", datetime(year + 1, 1, 1, tzinfo=UTC)),
+        ("origins", "ARRAY<STRING>", list(origins)),
+    )
+    if voyages.to_united_states:
+        destination = "other5 = @destination"
+        params = (*params, ("destination", "STRING", DESTINATION_ISO3))
+    else:
+        destination = "other5 <> other4"
     sql = (
         f"SELECT\n  {columns}\nFROM `{config.table}`\n"
         "WHERE start_date >= @start AND start_date < @end\n"
         "  AND other4 IN UNNEST(@origins)\n"
-        "  AND other5 = @destination"
+        f"  AND {destination}"
     )
-    return YearQuery(
-        sql=sql,
-        params=(
-            ("start", "TIMESTAMP", datetime(year, 1, 1, tzinfo=UTC)),
-            ("end", "TIMESTAMP", datetime(year + 1, 1, 1, tzinfo=UTC)),
-            ("origins", "ARRAY<STRING>", list(origins)),
-            ("destination", "STRING", DESTINATION_ISO3),
-        ),
-    )
+    return YearQuery(sql=sql, params=params)
 
 
 def estimate_bytes(
-    runner: BigQueryRunner, config: ClimateTraceConfig, origins: Sequence[str], year: int
+    runner: BigQueryRunner,
+    voyages: VoyageSet,
+    config: ClimateTraceConfig,
+    origins: Sequence[str],
+    year: int,
 ) -> int:
-    query = year_query(config, origins, year)
+    query = year_query(voyages, config, origins, year)
     return runner.dry_run(query.sql, query.params)
 
 
 def fetch_year(
     runner: BigQueryRunner,
+    voyages: VoyageSet,
     config: ClimateTraceConfig,
     origins: Sequence[str],
     year: int,
     max_bytes: int,
 ) -> bytes:
     """Run one year's query under the byte cap and return the result as Parquet."""
-    query = year_query(config, origins, year)
+    query = year_query(voyages, config, origins, year)
     estimate = runner.dry_run(query.sql, query.params)
     if estimate > max_bytes:
         raise ClimateTraceError(
@@ -152,6 +177,7 @@ def fetch_year(
     job = runner.run(query.sql, query.params, max_bytes)
     table = job.to_arrow()
     metadata = {
+        "dataset": voyages.target.dataset,
         "year": year,
         "table": config.table,
         "release": release,
@@ -208,13 +234,14 @@ def parse_year(
     )
 
 
-def archive_key(year: int) -> str:
-    return object_key(DATASET, str(year), f"voyages_{year}.parquet")
+def archive_key(voyages: VoyageSet, year: int) -> str:
+    return object_key(voyages.target.dataset, str(year), f"voyages_{year}.parquet")
 
 
 def load_year(
     conn: psycopg.Connection,
     archive: Archive,
+    voyages: VoyageSet,
     config: ClimateTraceConfig,
     origins: Sequence[str],
     year: int,
@@ -225,18 +252,19 @@ def load_year(
     voyages starting in `months`, which must fall in `year`."""
     if months.years() != range(year, year + 1):
         raise ClimateTraceError(f"months {months.first}..{months.last} are not all in {year}")
+    destination = DESTINATION_ISO3 if voyages.to_united_states else "outside the start country"
     return load_partition(
         conn,
         archive,
-        TARGET,
+        voyages.target,
         str(year),
-        key=archive_key(year),
+        key=archive_key(voyages, year),
         content_type="application/vnd.apache.parquet",
         params={
             "year": year,
             **months.as_params(),
             "origin_iso3": list(origins),
-            "destination_iso3": DESTINATION_ISO3,
+            "destination_iso3": destination,
             "vessel_types": list(config.vessel_types),
         },
         obtain=fetch,

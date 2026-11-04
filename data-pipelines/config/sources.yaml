@@ -70,6 +70,14 @@ climatetrace:
   vessel_types:
     - container
     - cargo.container
+  # Origins with case vessel tonnage and no container voyages to the US, whose cargo transships at a
+  # hub (warn_origins_without_departure_ports lists them): their voyages to other countries load
+  # as climatetrace_feeder_voyages, the first leg of a two-part sea route.
+  feeder_origins:
+    - BGD
+    - KHM
+    - JOR
+    - MMR
 
 emission_factors:
   # Workbooks loaded by `shockt ingest uk-ghg-factors`, `epa-ghg-hub`, `cbam-default-values` and

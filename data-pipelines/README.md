@@ -104,7 +104,10 @@ Climate TRACE ship voyages come from its public BigQuery dataset, one year per l
 uv run shockt ingest climatetrace-voyages --dry-run        # bytes each year would scan; no quota used
 uv run shockt ingest climatetrace-voyages                  # load voyages starting inside date_range
 uv run shockt ingest climatetrace-voyages --from-archive   # re-parse archived Parquet; no quota used
+uv run shockt ingest climatetrace-feeder-voyages           # feeder origins' voyages to other countries
 ```
+
+Feeder voyages are the first leg of cargo that transships at a hub: voyages from the origins in `climatetrace.feeder_origins` (countries with case vessel tonnage but no container voyages to the US) to any other country, in `raw.climatetrace_feeder_voyages`. The command takes the same options.
 
 Census State/Port Imports come as one fixed-width file per quarter, for all goods. Only quarters entirely inside `date_range` load; with no end month, quarters Census hasn't published yet are reported and skipped. The filter (origins, the destination states in `census_state_port.states`, rows with air or vessel weight) is in `config/sources.yaml`:
 

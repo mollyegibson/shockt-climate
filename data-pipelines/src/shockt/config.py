@@ -128,6 +128,8 @@ class ClimateTraceConfig(ConfigModel):
     """Fully qualified BigQuery table, project.dataset.table."""
     vessel_types: list[str]
     """Ship types (the source's `type`) loaded into `raw`; the archive keeps every type."""
+    feeder_origins: list[str]
+    """Origin countries (ISO3) whose voyages to other countries are loaded as feeder voyages."""
 
 
 class CensusSchedulesConfig(ConfigModel):
