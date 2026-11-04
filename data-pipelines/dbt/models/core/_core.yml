@@ -342,6 +342,27 @@ models:
           arguments:
             combination_of_columns: ["month", "origin_iso3", "end_coast_region"]
 
+  - name: agg_feeder_hub_shares_monthly
+    description: >
+      Feeder origins' container voyages to other countries (`raw.climatetrace_feeder_voyages`) by
+      start month, origin country, start port and hub port, with each hub's share of the origin's
+      feeder voyages in the month, the observed distance and duration of the feeder leg, and whether
+      the hub port starts any loaded container voyage to the US. A voyage stands for where the
+      origin's ships call next, not where their cargo goes on to.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: ["month", "origin_iso3", "start_port_id", "hub_port_id"]
+    columns:
+      - name: month
+        data_tests: [not_null]
+      - name: origin_iso3
+        data_tests: [not_null]
+      - name: hub_iso3
+        data_tests: [not_null]
+      - name: share
+        data_tests: [not_null]
+
   - name: dim_climatetrace_ports
     description: >
       US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the

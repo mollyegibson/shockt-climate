@@ -14,6 +14,7 @@ sources:
       - name: bts_t100_segments
       - name: portwatch_chokepoints
       - name: climatetrace_voyages
+      - name: climatetrace_feeder_voyages
       - name: ourairports_airports
       - name: geonames_cities
       - name: bts_border_crossings

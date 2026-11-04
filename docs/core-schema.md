@@ -220,6 +220,19 @@ erDiagram
     float total_co2e_t
     float co2e_t_per_km
   }
+  agg_feeder_hub_shares_monthly {
+    date month PK
+    text origin_iso3 PK, FK
+    text start_port_id PK
+    text hub_port_id PK
+    text hub_port
+    text hub_iso3
+    bigint n_voyages
+    numeric share
+    float median_distance_km
+    numeric mean_duration_h
+    bool hub_has_us_voyages
+  }
   fct_chokepoint_transits_daily {
     date date PK
     text chokepoint_id PK
@@ -276,11 +289,13 @@ erDiagram
   dim_climatetrace_ports ||..o{ fct_voyages : "end_port_id"
   dim_country ||..o{ fct_voyages : "start_iso3 = iso3"
   dim_country ||..o{ agg_voyage_lanes_monthly : "origin_iso3 = iso3"
+  dim_country ||..o{ agg_feeder_hub_shares_monthly : "origin_iso3 = iso3"
 ```
 
 - `dim_climatetrace_ports`: US arrival ports in the Climate TRACE voyages, rebuilt on every run: median coordinates of the voyages' end points, the most common port name, the coast region from the `coast_region` macro, and voyage counts (all loaded ship types, and container ships) for the loaded years and lanes. The loader keeps container ships only (`climatetrace.vessel_types`), so the two counts match.
 - `fct_voyages`: Container-ship voyages (Climate TRACE) from the configured Asian origins and Mexico to US ports.
 - `agg_voyage_lanes_monthly`: Container-ship voyages by start month, origin country and US coast region: voyage count, distance sailed, duration and CO2e.
+- `agg_feeder_hub_shares_monthly`: Feeder origins' container voyages to other countries (`raw.climatetrace_feeder_voyages`) by start month, origin country, start port and hub port: each hub's share of the origin's feeder voyages in the month, the feeder leg's observed distance and duration, and whether the hub port starts a loaded container voyage to the US. A voyage stands for where the origin's ships call next, not where their cargo goes on to.
 - `fct_chokepoint_transits_daily`: Daily ship transits through the configured chokepoints (IMF PortWatch), by ship type, with estimated trade volume in metric tons (each ship's estimated payload share × deadweight tonnage).
 - `fct_chokepoint_transits_monthly`: Monthly totals and daily means of chokepoint transits; a partial month has fewer `days_reported`.
 - `ref_emission_factors`: Every freight emission factor per tonne-km in the UK government conversion factors and the EPA GHG Emission Factors Hub, in kg CO2e: tank-to-wheel, well-to-tank and well-to-wheel.

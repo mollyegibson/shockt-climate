@@ -300,6 +300,14 @@ erDiagram
     text end_coast_region PK
     float median_distance_km
   }
+  agg_feeder_hub_shares_monthly {
+    date month PK
+    text origin_iso3 PK, FK
+    text start_port_id PK
+    text hub_port_id PK
+    numeric share
+    bool hub_has_us_voyages
+  }
   ref_emission_factors {
     text source PK
     text source_row_id PK
@@ -333,6 +341,7 @@ erDiagram
   dim_climatetrace_ports ||--o{ fct_voyages : "end_port_id"
   dim_country ||--o{ fct_voyages : "start_iso3 = iso3"
   dim_country ||--o{ agg_voyage_lanes_monthly : "origin_iso3 = iso3"
+  dim_country ||--o{ agg_feeder_hub_shares_monthly : "origin_iso3 = iso3"
   fct_eu_imports_monthly ||--o{ agg_eu_imports_mode_monthly : "summed across reporters"
   fct_voyages ||..o{ fct_ship_fuel_intensities : "IMO from asset_identifier"
 ```
