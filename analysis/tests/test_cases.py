@@ -77,7 +77,8 @@ def test_mix_by_month_weights_lanes_by_tonnes() -> None:
 
 
 def test_international_legs_are_the_engines_first_leg_of_each_mode() -> None:
-    """Each lane mode's first leg reaches the US border; the engine names them."""
+    """Each lane mode's first leg reaches the US border, after a feeder leg to a hub where there is
+    one; the engine names them."""
     from shockt_engine import LaneInputs, lane_legs
 
     weights = {
@@ -103,6 +104,15 @@ def test_international_legs_are_the_engines_first_leg_of_each_mode() -> None:
         legs = lane_legs(mode, inputs).legs
         assert legs[0].name in cases.INTERNATIONAL_LEGS
         assert all(leg.name not in cases.INTERNATIONAL_LEGS for leg in legs[1:])
+    through_hub = LaneInputs(
+        weights=weights,
+        distances=inputs.distances,
+        factors=inputs.factors,
+        feeder_pairs={("o", "p"): 1.0},
+        feeder_km={("o", "p"): 1.0},
+    )
+    legs = lane_legs("vessel", through_hub).legs
+    assert [leg.name in cases.INTERNATIONAL_LEGS for leg in legs] == [True, True, False]
 
 
 def test_leg_frame_parts_split_border_and_inland_legs() -> None:
@@ -201,3 +211,55 @@ def test_shares_within_divides_by_each_groups_total() -> None:
         .iter_rows()
     )
     assert mex == pytest.approx({"truck": 0.5, "rail": 0.5})
+
+
+def test_lane_inputs_pass_a_feeder_origins_hub_pairs_to_vessel_lanes_only() -> None:
+    hubs = pl.DataFrame(
+        {
+            "month": [date(2024, 1, 1), date(2024, 2, 1), date(2024, 3, 1)],
+            "origin_iso3": ["BGD", "BGD", "BGD"],
+            "start_port_id": ["ctg", "ctg", "ctg"],
+            "hub_port_id": ["departure_port:sin", "departure_port:sin", "departure_port:sin"],
+            "n_voyages": [3, 1, 9],
+            "median_distance_km": [2_800.0, 3_200.0, 9_999.0],
+        }
+    )
+    empty = pl.DataFrame(
+        schema={
+            "month": pl.Date,
+            "node_id": pl.String,
+            "kind": pl.String,
+            "coast_region": pl.String,
+            "census_cty_code": pl.String,
+            "hs6": pl.String,
+            "mode": pl.String,
+            "lane_coast_region": pl.String,
+            "weight_t": pl.Float64,
+        }
+    )
+    context = cases.LaneContext(
+        weights=empty,
+        observed_sea=pl.DataFrame(
+            schema={
+                "month": pl.Date,
+                "origin_iso3": pl.String,
+                "arrival_node_id": pl.String,
+                "n_voyages": pl.Int64,
+                "median_distance_km": pl.Float64,
+            }
+        ),
+        distances={},
+        factors={},
+        crossing_plants=pl.DataFrame(
+            schema={"crossing_node_id": pl.String, "hs6": pl.String, "plant_node_id": pl.String}
+        ),
+        feeder_hubs=hubs,
+    )
+
+    vessel = cases.lane_inputs(context, "5380", "BGD", ["610910"], "vessel", WINDOWS[0])
+    air = cases.lane_inputs(context, "5380", "BGD", ["610910"], "air", WINDOWS[0])
+
+    pair = ("ctg", "departure_port:sin")
+    assert vessel.feeder_pairs == {pair: 4.0}
+    assert vessel.feeder_km[pair] == pytest.approx((3 * 2_800.0 + 1 * 3_200.0) / 4)
+    assert air.feeder_pairs == {}

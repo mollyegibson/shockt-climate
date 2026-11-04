@@ -29,7 +29,9 @@ from shockt_analysis.settings import REPO_ROOT
 
 OTHER = "other"
 
-INTERNATIONAL_LEGS = frozenset({"airport → gateway", "port → seaport", "plant → crossing"})
+INTERNATIONAL_LEGS = frozenset(
+    {"airport → gateway", "port → hub", "port → seaport", "plant → crossing"}
+)
 """Legs that bring freight to the US border; the rest run inside the US."""
 
 LANE_NODE_MODES: Mapping[LaneMode, Mapping[str, str]] = {
@@ -170,6 +172,8 @@ class LaneContext:
     distances: Mapping[str, Mapping[tuple[str, str], float]]
     factors: Mapping[str, float]
     crossing_plants: pl.DataFrame
+    feeder_hubs: pl.DataFrame | None = None
+    """`core.feeder_hub_shares`: the feeder origins' voyages to hubs, for their vessel lanes."""
 
 
 def lane_inputs(
@@ -221,6 +225,25 @@ def lane_inputs(
             "plant_node_id"
         ].to_list()
         crossing_plant[crossing] = Counter(candidates).most_common(1)[0][0]
+    feeder_pairs: dict[tuple[str, str], float] = {}
+    feeder_km: dict[tuple[str, str], float] = {}
+    if mode == "vessel" and context.feeder_hubs is not None:
+        feeder = (
+            context.feeder_hubs.filter(in_window & (pl.col("origin_iso3") == iso3))
+            .group_by("start_port_id", "hub_port_id")
+            .agg(
+                pl.col("n_voyages").sum().alias("voyages"),
+                (
+                    (pl.col("median_distance_km") * pl.col("n_voyages")).sum()
+                    / pl.col("n_voyages").sum()
+                ).alias("km"),
+            )
+        )
+        for row in feeder.iter_rows(named=True):
+            pair = (row["start_port_id"], row["hub_port_id"])
+            feeder_pairs[pair] = float(row["voyages"])
+            if row["km"] is not None:
+                feeder_km[pair] = row["km"]
     return LaneInputs(
         weights=by_kind,
         distances=context.distances,
@@ -229,6 +252,8 @@ def lane_inputs(
             zip(observed["arrival_node_id"].to_list(), observed["km"].to_list(), strict=True)
         ),
         crossing_plants=crossing_plant,
+        feeder_pairs=feeder_pairs,
+        feeder_km=feeder_km,
     )
 
 

@@ -110,6 +110,20 @@ def node_weights(conn: psycopg.Connection, hs6: Sequence[str]) -> pl.DataFrame:
     )
 
 
+def feeder_hub_shares(conn: psycopg.Connection) -> pl.DataFrame:
+    """The feeder origins' container voyages to hub ports by month, origin, start port and hub
+    port, with the feeder leg's observed median distance."""
+    return frame(
+        conn,
+        """
+        select month, origin_iso3, start_port_id, 'departure_port:' || hub_port_id as hub_port_id,
+            hub_port, hub_iso3, n_voyages, share::float8 as share,
+            median_distance_km::float8 as median_distance_km, hub_has_us_voyages
+        from core.agg_feeder_hub_shares_monthly
+        """,
+    )
+
+
 def observed_sea(conn: psycopg.Connection) -> pl.DataFrame:
     """Observed sea distance by month, origin and US arrival seaport."""
     return frame(

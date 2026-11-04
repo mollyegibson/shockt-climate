@@ -187,8 +187,8 @@ The calendar years wholly inside a window, one window each, named by year.
 ### `cases.shares_within(monthly, windows, group, category) → DataFrame`
 Each category's share of tonnage within each group per window (e.g. each mode's share of an origin's tonnes).
 
-### `cases.LaneContext(weights, observed_sea, distances, factors, crossing_plants)`
-Everything the lanes need besides the lane itself.
+### `cases.LaneContext(weights, observed_sea, distances, factors, crossing_plants, feeder_hubs=None)`
+Everything the lanes need besides the lane itself. `feeder_hubs` (`core.feeder_hub_shares`) adds a `port → hub` leg to the feeder origins' vessel lanes.
 
 ### `cases.lane_inputs(context, census_cty_code, iso3, codes, mode, window, coast=None, states=None) → LaneInputs`
 Builds `LaneInputs` for one origin's lane.

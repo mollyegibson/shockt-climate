@@ -70,6 +70,11 @@ low/high estimates for Mexican overland modes.
 Columns: `month`, `census_cty_code`, `iso3`, `cty_name`, `hs6`, `mode`, `weight_t`,
 `weight_t_low`, `weight_t_high`.
 
+### `feeder_hub_shares(conn) → DataFrame`
+The feeder origins' container voyages to hub ports (transshipment) by month, origin, start port and hub port.
+Columns: `month`, `origin_iso3`, `start_port_id`, `hub_port_id` (as a `departure_port:` node id), `hub_port`,
+`hub_iso3`, `n_voyages`, `share`, `median_distance_km`, `hub_has_us_voyages`.
+
 ### `import_values(conn, hs6: list[str]) → DataFrame`
 Monthly import value by origin and HS-6, all modes (for shares by value).
 Columns: `month`, `census_cty_code`, `iso3`, `hs6`, `value_usd`.
