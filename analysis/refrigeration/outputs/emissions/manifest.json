@@ -1,0 +1,23 @@
+{
+  "scope": "HS841430 configured origins; air and vessel only; no company attribution",
+  "factors": "Fixed 2026 UK / 2025 EPA; WTW transport only; no manufacturing or refrigerants",
+  "route_assumption": "Equal weights across available country departure nodes; min/max node sensitivity. Not observed routes, representative port selection, or a confidence interval.",
+  "inland_assumption": "Truck; independent port/state distributions; covered pairs only",
+  "exclusions": "Foreign inland, transshipment, unsupported pairs, Mexican overland; not full supply-chain footprint",
+  "source_urls": {
+    "uk_2026.xlsx": "https://assets.publishing.service.gov.uk/media/6a6c9748862aaf18d9c62ac9/ghg-conversion-factors-2026-flat-format-revised.xlsx",
+    "epa_2025.xlsx": "https://www.epa.gov/system/files/other-files/2025-01/ghg-emission-factors-hub-2025.xlsx",
+    "airports.csv": "https://davidmegginson.github.io/ourairports-data/airports.csv"
+  },
+  "sources": {
+    "analysis/refrigeration/outputs/emissions/sources/airports.csv": "b311ab030775908769395b6814840f01732b27a5176b85f1a9ed3b5d98ff052b",
+    "analysis/refrigeration/outputs/emissions/sources/epa_2025.xlsx": "43afb91d79b2ae765b3a447549d9e1021a144a407cec5eb804be9fcf69a668a7",
+    "analysis/refrigeration/outputs/emissions/sources/parsed_factors.json": "2a537691272a14a34ee05b9d8baac893e9b9cad672d9df8a88d625be4c3565b1",
+    "analysis/refrigeration/outputs/emissions/sources/uk_2026.xlsx": "a9a455ab396dae226d510c7be6233748416d490c41a5d20f3dc7a0c45feecd5e",
+    "tmp/shockt-climate-v2/data-pipelines/dbt/seeds/seed_sea_distances.csv": "7b6e79b456e65461112bbe4ffb3f76fab68957779e801729f66fcf5e9bd48a6a",
+    "tmp/shockt-climate-v2/data-pipelines/dbt/seeds/seed_air_distances.csv": "e192de4363ff611d92c70a28d8ef311249d385be6e75ddecec5d627602ba0a82",
+    "tmp/shockt-climate-v2/data-pipelines/dbt/seeds/seed_road_distances.csv": "68d0250472d0d3de366ea0c031655dc8804e259d26f58875e4512f357dda0287",
+    "analysis/refrigeration/outputs/tables/port_activity.csv": "7b0003a721ea73a5a60d71f6f7224d11fe79b1a29ac6c5a5af2b355665efabaa",
+    "analysis/refrigeration/outputs/tables/domestic_transport_activity.csv": "f1d60b5d19d65f992e2c3167b26021fd1db456dac18e5673442379376cbc38df"
+  }
+}
