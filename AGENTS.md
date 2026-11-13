@@ -83,11 +83,13 @@ ShockT Climate is a monorepo. See the [README](./README.md) for what the product
 | `engine/` | Python (uv) | The emissions engine: pure functions, no database. See [its README](./engine/README.md). |
 | `analysis/` | Python (uv), Jupyter | Case notebooks and the reader that loads `core`. See [its README](./analysis/README.md). |
 | `inputs/` | YAML | The cases' analytical inputs: shock windows, causal labels, evidence. |
-| `content/`, `app/` | Markdown / TypeScript | Planned; created as the work starts. |
+| `app/api/` | Python (uv) | FastAPI backend for the route calculator. Path dependency on `engine/`. See [Route Calculator plan](./docs/plans/route-calculator.md). |
+| `app/web/` | TypeScript (React, Effect) | Route calculator front end. See [Route Calculator plan](./docs/plans/route-calculator.md). |
+| `content/` | Markdown | Planned; created as the work starts. |
 
 Contexts communicate through the database layers (`raw`, `core`, `inputs`, `outputs`), never by importing each other's code. See [Domain-Driven Design](./docs/domain-driven-design.md).
 
-## Python (`data-pipelines/`, `engine/`)
+## Python (`data-pipelines/`, `engine/`, `app/api/`)
 
 - Manage dependencies with `uv` (`uv sync`, `uv run …`, `uv add …`). Never `pip install` into the project.
 - Lint and format with `ruff`; test with `pytest`. Run `uv run ruff check . && uv run ruff format --check . && uv run pytest` before finishing a change.
