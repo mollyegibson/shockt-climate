@@ -86,9 +86,9 @@ A bounded context is a boundary within which a term means exactly one thing. Our
 | **Data pipelines** (`data-pipelines/`) | Python, dbt | `raw`, `core` | Public data sources | The `core` schema |
 | **Analysis** (`analysis/`, `inputs/`) | Notebooks, YAML | `inputs` (loaded by CI) | `raw`, `core`, `outputs` | The input file schema |
 | **Engine** (`engine/`) | Python | `outputs` | `core`, `inputs` | The `outputs` schema |
-| **App** (`app/`) | TypeScript, Effect | Nothing in the database | `inputs`, `outputs` | Its HTTP API |
+| **App** (`app/`) | Python (API), TypeScript (web) | Nothing in the database | `core`, `engine` | Its HTTP API |
 
-**Contexts communicate through the database layers, never by importing each other's code.** The app doesn't import the engine; it reads `outputs`. The engine doesn't import loader code; it reads `core`. The app never reads `raw`. A change to a published schema (`core`, `inputs`, `outputs`) is a contract change and gets reviewed as one.
+**Contexts communicate through the database layers, never by importing each other's code** — with one exception: the app's API imports the engine's routing module for on-demand route enumeration. Precomputing all origin × destination × scenario × option routes into `outputs` is infeasible (the combinatorial space is too large and user options are open-ended). The engine remains pure Python with no database dependency. The app reads `core` directly for distances, nodes and factors; the API layer loads these and passes them to `enumerate_routes`.
 
 Isolation extends to credentials: each context connects with its own database role (`shockt_ingest`, `shockt_transform`, `shockt_analyst`, `shockt_app`), so a role's grants enforce the boundary rather than convention alone.
 

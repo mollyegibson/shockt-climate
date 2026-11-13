@@ -1,10 +1,10 @@
 /*
 Ports the main sea leg to the US starts from: Climate TRACE start ports in the origin countries that
-container ships sailed from to the US (`is_us_departure`), each at the median start point of those
-voyages, and the hub ports the feeder origins' container ships sail to (`is_feeder_hub`), each at
-the median end point of the feeder voyages. A port can be both, and is then placed by its US
-departures. Only US voyages whose end point doesn't contradict their end port count, the same as
-`fct_voyages`.
+container ships sailed from to the US (`is_us_departure`), the hub ports the feeder origins'
+container ships sail to (`is_feeder_hub`), and the feeder origin ports themselves
+(`is_feeder_origin`) — the ports feeder voyages depart from, in countries with no direct US service.
+A port can hold multiple roles, and is placed by its US departures when available. Only US voyages
+whose end point doesn't contradict their end port count, the same as `fct_voyages`.
 */
 with origin_countries as (
     select distinct iso3
@@ -30,10 +30,20 @@ hubs as (
         and v.end_lon is not null
 ),
 
+feeder_origins as (
+    select v.start_port_id as port_id, v.start_port as port, v.start_iso3 as iso3, v.start_lon as lon, v.start_lat as lat
+    from {{ ref('stg_climatetrace_feeder_voyages') }} as v
+    where {{ is_container_ship('v.vessel_type') }}
+        and v.start_port_id is not null
+        and v.start_lon is not null
+),
+
 ports as (
     select 'departure' as role, * from departures
     union all
     select 'hub' as role, * from hubs
+    union all
+    select 'feeder_origin' as role, * from feeder_origins
 ),
 
 names as (
@@ -49,15 +59,19 @@ placed as (
         port_id,
         bool_or(role = 'departure') as is_us_departure,
         bool_or(role = 'hub') as is_feeder_hub,
+        bool_or(role = 'feeder_origin') as is_feeder_origin,
         min(iso3) as iso3,
         count(*) filter (where role = 'departure') as container_voyages,
         count(*) filter (where role = 'hub') as feeder_voyages,
+        count(*) filter (where role = 'feeder_origin') as feeder_origin_voyages,
         coalesce(
             percentile_cont(0.5) within group (order by lon) filter (where role = 'departure'),
+            percentile_cont(0.5) within group (order by lon) filter (where role = 'feeder_origin'),
             percentile_cont(0.5) within group (order by lon)
         ) as lon,
         coalesce(
             percentile_cont(0.5) within group (order by lat) filter (where role = 'departure'),
+            percentile_cont(0.5) within group (order by lat) filter (where role = 'feeder_origin'),
             percentile_cont(0.5) within group (order by lat)
         ) as lat
     from ports
@@ -72,7 +86,9 @@ select
     placed.lat,
     placed.container_voyages,
     placed.feeder_voyages,
+    placed.feeder_origin_voyages,
     placed.is_us_departure,
-    placed.is_feeder_hub
+    placed.is_feeder_hub,
+    placed.is_feeder_origin
 from placed
 left join names using (port_id)

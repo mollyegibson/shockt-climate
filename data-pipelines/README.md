@@ -388,6 +388,7 @@ erDiagram
     float lon
     bool is_us_departure
     bool is_feeder_hub
+    bool is_feeder_origin
   }
   dim_departure_airports {
     text iata_code PK

@@ -323,8 +323,10 @@ erDiagram
     float lat
     bigint container_voyages
     bigint feeder_voyages
+    bigint feeder_origin_voyages
     bool is_us_departure
     bool is_feeder_hub
+    bool is_feeder_origin
   }
   dim_departure_airports {
     text iata_code PK
@@ -388,7 +390,7 @@ erDiagram
   dim_destination_states ||..|| dim_nodes : "destination_state"
 ```
 
-- `dim_departure_ports`: Ports the main sea leg to the US starts from: Climate TRACE start ports in the origin countries that container ships sailed from to the US (`is_us_departure`), at the median start point of those voyages, and the hub ports the feeder origins' container ships sail to (`is_feeder_hub`), at the median end point of the feeder voyages.
+- `dim_departure_ports`: Ports the main sea leg to the US starts from: Climate TRACE start ports in the origin countries that container ships sailed from to the US (`is_us_departure`), the hub ports the feeder origins' container ships sail to (`is_feeder_hub`), and the feeder origin ports themselves (`is_feeder_origin`) — the ports feeder voyages depart from, in countries with no direct US service. A port can hold multiple roles and is placed by its US departures when available.
 - `dim_departure_airports`: Airports in the origin countries that flew freight to the US in BTS T-100, placed by IATA code and country with OurAirports.
 - `dim_mexico_plants`: DENUE establishments in the case industries whose employee band starts at or above `mexico_sites.min_employees`, one per industry and location.
 - `map_crossing_plant`: The nearest large plant, by great-circle distance, for each border crossing and HS-6 code with overland imports, among codes whose industries DENUE covers.
@@ -480,6 +482,7 @@ erDiagram
 - `seed_air_distances`: Geodesic distances from departure airports to air gateways (`shockt ref air-distances`).
 - `seed_road_distances`: openrouteservice heavy-vehicle distances for truck legs (`shockt ref road-distances`).
 - `seed_rail_distances`: Shortest-track distances for rail legs on the BTS North American Rail Network (`shockt ref rail-distances`).
+- `distances_sea`, `distances_air`, `distances_road`, `distances_rail`: Thin `core` views over the corresponding seeds. `distances_sea` adds a computed `duration_h` column (km ÷ 23.15 km/h). The app reads these views instead of the seeds directly.
 
 ## EU imports and ship fuel intensities
 
