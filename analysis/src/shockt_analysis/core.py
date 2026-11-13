@@ -167,7 +167,7 @@ def factors(conn: psycopg.Connection) -> list[Factor]:
     rows = conn.execute(
         """
         select source, source_row_id, mode, variant, vehicle_type, size_class, haul,
-            radiative_forcing, wtw_kg_co2e_per_tkm
+            radiative_forcing, ttw_kg_co2e_per_tkm, wtt_kg_co2e_per_tkm, wtw_kg_co2e_per_tkm
         from core.ref_emission_factors
         """
     ).fetchall()

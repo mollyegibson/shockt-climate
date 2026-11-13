@@ -71,7 +71,7 @@ class LegFactors(BaseModel):
 
 @dataclass(frozen=True)
 class Factor:
-    """One row of `core.ref_emission_factors`: kg CO2e per tonne-km, well-to-wheel."""
+    """One row of `core.ref_emission_factors`: kg CO2e per tonne-km, by scope."""
 
     source: str
     source_row_id: str
@@ -81,6 +81,8 @@ class Factor:
     size_class: str | None
     haul: str | None
     radiative_forcing: bool | None
+    ttw_kg_co2e_per_tkm: float | None
+    wtt_kg_co2e_per_tkm: float | None
     wtw_kg_co2e_per_tkm: float | None
 
 
