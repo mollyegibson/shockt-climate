@@ -226,7 +226,9 @@ def get_routes(
             destination_node=destination_node,
             hs6=hs6,
         )
-        comparison = _build_comparison(all_routes, compare_routes, nodes, cargo_t, limit)
+        comparison = _build_comparison(
+            all_routes, compare_routes, nodes, cargo_t, limit, scenario, compare_scenario
+        )
 
     buckets: dict[str, list[RouteResponse]] = {
         "vessel_direct": [],
@@ -266,6 +268,8 @@ def _build_comparison(
     nodes: dict[str, object],
     cargo_t: float | None,
     limit: int,
+    primary_scenario: str,
+    compare_scenario: str,
 ) -> dict[str, list[ComparisonRoute]]:
     """Match routes by full node path, apply limit, compute deltas."""
     compare_by_path: dict[tuple[str, ...], Route] = {}
@@ -304,7 +308,7 @@ def _build_comparison(
                     primary=primary_resp,
                     compare=None,
                     delta_wtw_kg_co2e_per_t=None,
-                    note=f"Route not available under {route.scenario}",
+                    note=f"Route not available under {compare_scenario}",
                 )
             )
 
@@ -318,7 +322,7 @@ def _build_comparison(
                 primary=None,
                 compare=compare_resp,
                 delta_wtw_kg_co2e_per_t=None,
-                note=f"Route not available under {route.scenario}",
+                note=f"Route not available under {primary_scenario}",
             )
         )
 

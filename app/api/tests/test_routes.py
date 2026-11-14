@@ -158,6 +158,43 @@ class TestRoutesScenario:
                 if "0401" in entry["primary"]["legs"][0]["to_node"]:
                     assert entry["delta_wtw_kg_co2e_per_t"] > 0
 
+    def test_comparison_primary_only_note(self, client: TestClient) -> None:
+        """BGD→NY exists under open but not suez_closed; note should name suez_closed."""
+        resp = client.get(
+            "/routes",
+            params={
+                "origin": "BGD",
+                "destination": "TX",
+                "modes": "vessel",
+                "compare_scenario": "suez_closed",
+            },
+        )
+        data = resp.json()
+        comp = data["comparison"]
+        for entry in comp.get("vessel_direct", []):
+            if entry["compare"] is None:
+                assert "suez_closed" in entry["note"]
+
+    def test_comparison_compare_only_route(self, client: TestClient) -> None:
+        """BGD→NY exists under open but not suez_closed; reversing gives a compare-only route."""
+        resp = client.get(
+            "/routes",
+            params={
+                "origin": "BGD",
+                "destination": "TX",
+                "modes": "vessel",
+                "scenario": "suez_closed",
+                "compare_scenario": "open",
+            },
+        )
+        data = resp.json()
+        comp = data["comparison"]
+        compare_only = [e for cat in comp.values() for e in cat if e["primary"] is None]
+        assert len(compare_only) > 0
+        for entry in compare_only:
+            assert entry["compare"] is not None
+            assert "suez_closed" in entry["note"]
+
 
 class TestRoutesPassages:
     def test_passages_propagated(self, client: TestClient) -> None:

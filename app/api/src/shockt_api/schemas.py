@@ -53,7 +53,7 @@ class RouteResponse(BaseModel):
 
 
 class ComparisonRoute(BaseModel):
-    primary: RouteResponse
+    primary: RouteResponse | None
     compare: RouteResponse | None
     delta_wtw_kg_co2e_per_t: float | None
     note: str | None = None

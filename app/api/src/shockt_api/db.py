@@ -55,21 +55,24 @@ def _load_sea_distances(
     return sea
 
 
+_EDGE_SQL: dict[str, str] = {
+    "distances_air": "select from_node_id, to_node_id, km from core.distances_air",
+    "distances_road": ("select from_node_id, to_node_id, km, duration_h from core.distances_road"),
+    "distances_rail": "select from_node_id, to_node_id, km from core.distances_rail",
+}
+
+
 def _load_edge_distances(
     conn: psycopg.Connection[tuple], table: str
 ) -> dict[tuple[str, str], EdgeDistance]:
+    sql = _EDGE_SQL[table]
     has_duration = table in ("distances_road",)
+    rows = conn.execute(sql).fetchall()
     if has_duration:
-        rows = conn.execute(
-            f"select from_node_id, to_node_id, km, duration_h from core.{table}"  # noqa: S608
-        ).fetchall()
         return {
             (r[0], r[1]): EdgeDistance(km=float(r[2]), duration_h=float(r[3]) if r[3] else None)
             for r in rows
         }
-    rows = conn.execute(
-        f"select from_node_id, to_node_id, km from core.{table}"  # noqa: S608
-    ).fetchall()
     return {(r[0], r[1]): EdgeDistance(km=float(r[2]), duration_h=None) for r in rows}
 
 
@@ -185,7 +188,8 @@ def search_nodes(
     limit: int = 20,
 ) -> list[dict[str, object]]:
     """Search nodes by name, country name or ISO code."""
-    pattern = f"%{q}%"
+    escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
     sql = (
         "select n.node_id, n.kind, n.name, n.iso3, n.lat, n.lon "
         "from core.dim_nodes n "
